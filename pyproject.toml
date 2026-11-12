@@ -11,6 +11,9 @@ requires-python = ">=3.10,<3.15"
 dependencies = [
   "aiohttp>=3.14.3",
   "feedparser>=6.0.14",
+  "fastmcp>=2.0,<3",
+  "google-auth>=2.44.0,<3",
+  "google-auth-oauthlib>=1.2.2,<2",
   "neonize",
   "pydantic>=2.3,<3",
   "pydantic-settings>=2.0,<3",
@@ -52,7 +55,7 @@ skip-magic-trailing-comma = false
 
 [tool.mypy]
 [[tool.mypy.overrides]]
-module = ["neonize.*", "feedparser.*"]
+module = ["neonize.*", "feedparser.*", "google_auth_oauthlib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "alfred-calendar": {
+      "command": "bash",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/run-calendar-mcp.sh"]
+    }
+  }
+}

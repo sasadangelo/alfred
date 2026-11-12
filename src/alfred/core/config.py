@@ -24,6 +24,12 @@ class NewsConfig(BaseModel):
     feeds: list[NewsFeedConfig] = []
 
 
+class CalendarConfig(BaseModel):
+    """Calendar preferences used for local date and time interpretation."""
+
+    timezone: str = "Europe/Rome"
+
+
 class PlaceConfig(BaseModel):
     """A named place and its postal address."""
 
@@ -48,6 +54,7 @@ class AlfredSettings(BaseSettings):
     work: WorkConfig
     school: PlaceConfig | None = None
     news: NewsConfig = NewsConfig()
+    calendar: CalendarConfig = CalendarConfig()
 
     @classmethod
     def settings_customise_sources(

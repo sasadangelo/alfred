@@ -30,6 +30,8 @@ repos:
           - "pydantic-settings"
           - "pytest"
           - "types-requests"
+          - "google-auth"
+          - "fastmcp"
         args: ["--config-file=pyproject.toml"]
 
   - repo: https://github.com/PyCQA/bandit
