@@ -1,4 +1,4 @@
-"""MCP tools for Alfred's Google Calendar integration."""
+"""Google Calendar tools, mounted into the google-workspace MCP server."""
 
 from datetime import date, datetime
 from typing import Any
@@ -18,14 +18,13 @@ from alfred.calendar import (
 )
 from alfred.core.config import get_settings
 
-mcp = FastMCP(
-    name="alfred-calendar",
-    instructions=(
-        "Read Google Calendar events; create, update or delete events only at the user's explicit request. "
-        "Every tool works on the primary calendar unless a calendar_id from list_google_calendars is given. "
-        "Events with event_type 'birthday' come from Google Contacts and cannot be deleted here."
-    ),
+INSTRUCTIONS = (
+    "Google Calendar: every tool works on the primary calendar unless a calendar_id from "
+    "list_google_calendars is given. Events with event_type 'birthday' come from Google Contacts "
+    "and cannot be deleted through the Calendar API."
 )
+
+mcp = FastMCP(name="calendar", instructions=INSTRUCTIONS)
 
 
 def _parse_datetime(value: str, timezone: str) -> datetime:
@@ -112,7 +111,7 @@ def create_calendar_event(
     recurrence: list[str] | None = None,
     calendar_id: str = "primary",
 ) -> dict[str, Any]:
-    """Create a Google Calendar event from ISO-8601 times; naive times use Alfred's configured timezone.
+    """Create a Google Calendar event from ISO-8601 times; naive times use the configured timezone.
 
     For an all-day event pass YYYY-MM-DD dates; end is exclusive (the day after the last day).
     reminder_minutes sets popup notifications (minutes before start; for all-day events start is
@@ -175,7 +174,3 @@ def delete_calendar_event(event_id: str, calendar_id: str = "primary") -> dict[s
     """Delete a Google Calendar event by id; pass a recurring_event_id to delete the whole series."""
     delete_event(event_id, calendar_id=calendar_id)
     return {"deleted": event_id}
-
-
-if __name__ == "__main__":
-    mcp.run(transport="stdio")

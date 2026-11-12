@@ -30,6 +30,7 @@ repos:
           - "pydantic-settings"
           - "pytest"
           - "types-requests"
+          - "types-PyYAML"
           - "google-auth"
           - "fastmcp"
         args: ["--config-file=pyproject.toml"]

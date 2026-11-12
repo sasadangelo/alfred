@@ -18,6 +18,7 @@ dependencies = [
   "pydantic>=2.3,<3",
   "pydantic-settings>=2.0,<3",
   "requests>=2.31.0,<3",
+  "pyyaml>=6.0,<7",
 ]
 
 [dependency-groups]
@@ -32,6 +33,7 @@ dev = [
   "pytest>=8.4.2",
   "radon>=6.0.1",
   "ruff>=0.8.0",
+  "types-pyyaml>=6.0,<6.0.12.20261001",
 ]
 
 [tool.ruff]

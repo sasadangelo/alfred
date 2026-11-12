@@ -1,8 +1,12 @@
 {
   "mcpServers": {
-    "alfred-calendar": {
+    "google-workspace": {
       "command": "bash",
-      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/run-calendar-mcp.sh"]
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/run-mcp.sh", "google-workspace"]
+    },
+    "user-profile": {
+      "command": "bash",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/run-mcp.sh", "user-profile"]
     }
   }
 }

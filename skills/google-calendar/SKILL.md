@@ -5,11 +5,13 @@ description: Use when the user asks Alfred to check, create, change, or delete G
 
 # Google Calendar
 
-Use the `alfred-calendar` MCP tools to read, create, update, and delete events in the user's Google Calendar. Every tool uses the primary calendar unless you pass a `calendar_id`; get the ids with `list_google_calendars` when the user names another calendar (for example "Famiglia").
+Use the `google-workspace` MCP tools to read, create, update, and delete events in the user's Google Calendar. Every tool uses the primary calendar unless you pass a `calendar_id`; get the ids with `list_google_calendars` when the user names another calendar (for example "Famiglia").
 
 Event results include `all_day`, `reminder_minutes` (`null` means the calendar defaults), `busy` (false for events marked free), `event_type`, and `recurring_event_id` (set when the event is one occurrence of a series). Use `get_calendar_event` with a `recurring_event_id` to read the series' `recurrence` rules, creator, and creation date.
 
 Reminder minutes count back from the event start. For all-day events the start is local midnight, so 480 means 16:00 the day before and 420 means 17:00 the day before.
+
+Create, update, or delete events only at the user's explicit request. When an appointment needs a personal detail (for example travel from home, or whose birthday it is), read it with `get_user_profile` from the `user-profile` server instead of asking again.
 
 ## List appointments
 
@@ -29,7 +31,7 @@ Reminder minutes count back from the event start. For all-day events the start i
 2. If the date, time, or duration is ambiguous, ask a clarifying question instead of guessing.
 3. Call `check_calendar_availability` for timed events and mention any conflict. Call `list_calendar_events` for the target days and skip any event that already exists with the same title and date, to avoid duplicates.
 4. For all-day events pass `YYYY-MM-DD` dates; `end` is exclusive (the day after the last day).
-5. Set `reminder_minutes` at creation when the user wants notifications; otherwise the calendar defaults apply, which may add several popups. For a repeating event pass `recurrence`, for example `["RRULE:FREQ=MONTHLY;BYMONTHDAY=15"]`.
+5. Set `reminder_minutes` at creation. Check the user's reminder preferences in `get_user_profile` (for example `important_event_reminders` for appointments like the dentist) and propose them; otherwise the calendar defaults apply, which may add several popups. Never treat reminders that match a saved preference as duplicates to clean up. For a repeating event pass `recurrence`, for example `["RRULE:FREQ=MONTHLY;BYMONTHDAY=15"]`.
 6. State the event details and obtain explicit confirmation before calling `create_calendar_event`.
 7. After success, confirm the created event using the returned details. Never claim success if the tool call failed.
 
@@ -55,6 +57,6 @@ If a tool reports that Google Calendar is not authorized, or that the saved auth
 1. Ask the user to enable the Google Calendar API and create an OAuth client of type **Desktop app** in Google Cloud Console.
 2. Have the user save the downloaded client JSON as `~/.claude/config/google-oauth-client.json` (or `credentials/google-oauth-client.json` in the Alfred repository). Never ask them to paste the file or its contents into chat.
 3. Run `bash scripts/authorize-google-calendar.sh` and let the user complete Google's consent screen in the browser.
-4. Restart or reconnect the `alfred-calendar` MCP server.
+4. Restart or reconnect the `google-workspace` MCP server.
 
 The generated token is stored next to the client file, as `google-calendar-token.json`, with owner-only permissions. Do not print, copy, or commit OAuth files.
