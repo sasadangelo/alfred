@@ -50,34 +50,58 @@ def get_user_profile() -> dict[str, Any]:
 
 @mcp.tool
 def save_my_details(
-    name: str | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    nickname: str | None = None,
     birth_date: str | None = None,
     birth_place: str | None = None,
     source: str = "user",
 ) -> dict[str, Any]:
-    """Save the user's own name, birth date or birth place; omitted fields are kept.
+    """Save the user's own first/last name, nickname, birth date or birth place; omitted fields are kept.
 
     source records where the fact came from (e.g. "user", "google-contacts").
     """
     return _change(
         lambda p: store.update_me(
-            p, name=name, birth_date=_parse_date(birth_date), birth_place=birth_place, source=source
+            p,
+            first_name=first_name,
+            last_name=last_name,
+            nickname=nickname,
+            birth_date=_parse_date(birth_date),
+            birth_place=birth_place,
+            source=source,
         )
     )
 
 
 @mcp.tool
 def save_family_member(
-    name: str,
-    relation: str | None = None,
+    first_name: str,
+    last_name: str = "",
     birth_date: str | None = None,
+    nickname: str | None = None,
+    relation: str | None = None,
     birth_place: str | None = None,
+    deceased: bool | None = None,
     source: str = "user",
 ) -> dict[str, Any]:
-    """Add or update a family member by name (relation e.g. "moglie", "figlio"); omitted fields are kept."""
+    """Add or update a family member; omitted fields are kept.
+
+    A person is identified by first_name + last_name + birth_date, so namesakes stay separate:
+    pass birth_date whenever it is known. relation e.g. "moglie", "figlio"; nickname e.g. "Betty".
+    deceased=true marks a relative who has passed away: no age is computed for them.
+    """
     return _change(
         lambda p: store.save_family_member(
-            p, name, relation=relation, birth_date=_parse_date(birth_date), birth_place=birth_place, source=source
+            p,
+            first_name,
+            last_name,
+            nickname=nickname,
+            relation=relation,
+            birth_date=_parse_date(birth_date),
+            birth_place=birth_place,
+            deceased=deceased,
+            source=source,
         )
     )
 
@@ -119,10 +143,11 @@ def skip_onboarding_question(key: str) -> dict[str, Any]:
 
 
 @mcp.tool
-def forget_profile_item(section: store.Section, key: str = "") -> dict[str, Any]:
-    """Delete one saved fact: a family member or vehicle by name, a place or preference by key, a note
-    containing key, or the user's own details with section "me"."""
-    return _change(lambda p: store.forget(p, section, key))
+def forget_profile_item(section: store.Section, key: str = "", birth_date: str | None = None) -> dict[str, Any]:
+    """Delete one saved fact: a family member by full name or nickname (plus birth_date for namesakes),
+    a vehicle by name or plate, a place or preference by key, a note containing key, or the user's own
+    details with section "me"."""
+    return _change(lambda p: store.forget(p, section, key, _parse_date(birth_date)))
 
 
 if __name__ == "__main__":

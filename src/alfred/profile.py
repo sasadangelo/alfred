@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 PROFILE_FILE_ENV = "ALFRED_PROFILE_FILE"
 CONFIG_DIR_ENV = "ALFRED_CONFIG_DIR"
@@ -49,18 +49,39 @@ def _not_in_future(value: date | None) -> date | None:
     return value
 
 
-class Person(ProfileItem):
-    """The user or a family member."""
+class AmbiguousPersonError(ValueError):
+    """Several people share the given name and no birth date tells them apart."""
 
-    name: str
+
+class Person(ProfileItem):
+    """The user or a family member, identified by first name, last name and birth date."""
+
+    first_name: str
+    last_name: str = ""
+    nickname: str = ""
     relation: str = ""
     birth_date: date | None = None
     birth_place: str = ""
+    deceased: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _split_legacy_name(cls, data: Any) -> Any:
+        """Accept profiles saved before first/last names were separate fields."""
+        if isinstance(data, dict) and "name" in data and "first_name" not in data:
+            data = dict(data)
+            first, _, last = str(data.pop("name")).strip().partition(" ")
+            data["first_name"], data["last_name"] = first, last.strip()
+        return data
 
     @field_validator("birth_date")
     @classmethod
     def _check_birth_date(cls, value: date | None) -> date | None:
         return _not_in_future(value)
+
+    @property
+    def full_name(self) -> str:
+        return " ".join(part for part in (self.first_name, self.last_name) if part)
 
 
 class Place(ProfileItem):
@@ -157,6 +178,30 @@ def _key(value: str) -> str:
     return " ".join(value.split()).casefold()
 
 
+def _same_name(person: Person, first_name: str, last_name: str) -> bool:
+    return _key(person.first_name) == _key(first_name) and _key(person.last_name) == _key(last_name)
+
+
+def _find_person(people: list[Person], first_name: str, last_name: str, birth_date: date | None) -> int | None:
+    """Return the index of the person with this identity, or None when it is a new person.
+
+    Identity is first name + last name + birth date. Without a birth date the name must be
+    unique; with one, an exact match wins, else a single same-named person without a date.
+    """
+    candidates = [index for index, person in enumerate(people) if _same_name(person, first_name, last_name)]
+    if birth_date is not None:
+        for index in candidates:
+            if people[index].birth_date == birth_date:
+                return index
+        undated = [index for index in candidates if people[index].birth_date is None]
+        return undated[0] if len(undated) == 1 else None
+    if len(candidates) > 1:
+        raise AmbiguousPersonError(
+            f"more than one {first_name} {last_name} is saved; pass birth_date to say which one".replace("  ", " ")
+        )
+    return candidates[0] if candidates else None
+
+
 def missing_essentials(profile: Profile) -> list[dict[str, str]]:
     """Return the onboarding questions still unanswered and not skipped, in asking order."""
     commute = _key(profile.preferences.get("commute", ""))
@@ -176,25 +221,36 @@ def missing_essentials(profile: Profile) -> list[dict[str, str]]:
 
 
 def describe_profile(profile: Profile, today: date | None = None) -> dict[str, Any]:
-    """Return the profile plus derived facts: ages, upcoming birthdays and missing essentials."""
+    """Return the profile plus derived facts: ages, upcoming birthdays and missing essentials.
+
+    Ages are given only for living people. Upcoming birthdays of deceased relatives are listed
+    with ``deceased: true`` and no age, as anniversaries to remember rather than to celebrate.
+    """
     today = today or date.today()
     people = ([profile.me] if profile.me else []) + profile.family
-    ages = {person.name: age_on(person.birth_date, today) for person in people if person.birth_date}
-    upcoming = []
+    ages = [
+        {"name": person.full_name, "birth_date": person.birth_date.isoformat(), "age": age_on(person.birth_date, today)}
+        for person in people
+        if person.birth_date and not person.deceased
+    ]
+    upcoming: list[dict[str, Any]] = []
     for person in people:
         if person.birth_date is None:
             continue
         next_birthday = _next_birthday(person.birth_date, today)
         days = (next_birthday - today).days
         if days <= UPCOMING_BIRTHDAY_DAYS:
-            upcoming.append(
-                {
-                    "name": person.name,
-                    "date": next_birthday.isoformat(),
-                    "in_days": days,
-                    "turns": age_on(person.birth_date, next_birthday),
-                }
-            )
+            item: dict[str, Any] = {
+                "name": person.full_name,
+                "birth_date": person.birth_date.isoformat(),
+                "date": next_birthday.isoformat(),
+                "in_days": days,
+            }
+            if person.deceased:
+                item["deceased"] = True
+            else:
+                item["turns"] = age_on(person.birth_date, next_birthday)
+            upcoming.append(item)
     return {
         "profile": profile.model_dump(mode="json", exclude_none=True),
         "ages": ages,
@@ -208,49 +264,76 @@ def _changes(**fields: Any) -> dict[str, Any]:
     return {name: value for name, value in fields.items() if value is not None}
 
 
+def _clean(value: str | None) -> str | None:
+    return " ".join(value.split()) if value is not None else None
+
+
 def update_me(
     profile: Profile,
     *,
-    name: str | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    nickname: str | None = None,
     birth_date: date | None = None,
     birth_place: str | None = None,
     source: str = "user",
     today: date | None = None,
 ) -> Profile:
     """Set facts about the user; ``None`` keeps the current value."""
-    changes = _changes(birth_date=birth_date, birth_place=birth_place, source=source, updated=today or date.today())
+    changes = _changes(
+        first_name=_clean(first_name),
+        last_name=_clean(last_name),
+        nickname=_clean(nickname),
+        birth_date=birth_date,
+        birth_place=birth_place,
+        source=source,
+        updated=today or date.today(),
+    )
     if profile.me is None:
-        if not name:
-            raise ValueError("name is required the first time the user's details are saved")
-        me = Person(name=name.strip(), relation="io", **changes)
+        if not changes.get("first_name"):
+            raise ValueError("first_name is required the first time the user's details are saved")
+        me = Person(relation="io", **changes)
     else:
-        me = Person.model_validate({**profile.me.model_dump(), **changes, **_changes(name=name and name.strip())})
+        me = Person.model_validate({**profile.me.model_dump(), **changes})
     return profile.model_copy(update={"me": me})
 
 
 def save_family_member(
     profile: Profile,
-    name: str,
+    first_name: str,
+    last_name: str = "",
     *,
+    nickname: str | None = None,
     relation: str | None = None,
     birth_date: date | None = None,
     birth_place: str | None = None,
+    deceased: bool | None = None,
     source: str = "user",
     today: date | None = None,
 ) -> Profile:
-    """Add a family member or update the one with the same name; ``None`` keeps current values."""
-    if not name.strip():
-        raise ValueError("name must not be empty")
+    """Add a family member or update the one with the same identity; ``None`` keeps current values.
+
+    Identity is first name + last name + birth date, so namesakes stay separate people. Without a
+    birth date, an ambiguous name raises :class:`AmbiguousPersonError`.
+    """
+    first_name, last_name = _clean(first_name) or "", _clean(last_name) or ""
+    if not first_name:
+        raise ValueError("first_name must not be empty")
     changes = _changes(
-        relation=relation, birth_date=birth_date, birth_place=birth_place, source=source, updated=today or date.today()
+        nickname=_clean(nickname),
+        relation=relation,
+        birth_date=birth_date,
+        birth_place=birth_place,
+        deceased=deceased,
+        source=source,
+        updated=today or date.today(),
     )
     family = list(profile.family)
-    for index, person in enumerate(family):
-        if _key(person.name) == _key(name):
-            family[index] = Person.model_validate({**person.model_dump(), **changes})
-            break
+    index = _find_person(family, first_name, last_name, birth_date)
+    if index is None:
+        family.append(Person(first_name=first_name, last_name=last_name, **changes))
     else:
-        family.append(Person(name=name.strip(), **changes))
+        family[index] = Person.model_validate({**family[index].model_dump(), **changes})
     return profile.model_copy(update={"family": family})
 
 
@@ -332,9 +415,10 @@ def skip_essential(profile: Profile, key: str) -> Profile:
     return profile.model_copy(update={"skipped": [*profile.skipped, key]})
 
 
-def forget(profile: Profile, section: Section, key: str = "") -> Profile:
-    """Remove one item: a family member or vehicle by name (or plate), a place or preference by
-    key, a note containing ``key``, or the user's own details (``section="me"``)."""
+def forget(profile: Profile, section: Section, key: str = "", birth_date: date | None = None) -> Profile:
+    """Remove one item: a family member by full name or nickname (plus ``birth_date`` when
+    namesakes exist), a vehicle by name or plate, a place or preference by key, a note containing
+    ``key``, or the user's own details (``section="me"``)."""
     wanted = _key(key)
     if section == "me":
         if profile.me is None:
@@ -347,7 +431,15 @@ def forget(profile: Profile, section: Section, key: str = "") -> Profile:
             raise KeyError(f"nothing saved as {key!r} in {section}")
         return profile.model_copy(update={section: {k: v for k, v in items.items() if k != label}})
     if section == "family":
-        remaining: list[Any] = [person for person in profile.family if _key(person.name) != wanted]
+        matches = [
+            person
+            for person in profile.family
+            if wanted in (_key(person.full_name), _key(person.nickname))
+            and (birth_date is None or person.birth_date == birth_date)
+        ]
+        if len(matches) > 1:
+            raise AmbiguousPersonError(f"more than one {key!r} is saved; pass birth_date to say which one")
+        remaining: list[Any] = [person for person in profile.family if all(person is not m for m in matches)]
     elif section == "vehicles":
         remaining = [v for v in profile.vehicles if _key(v.name) != wanted and _key(v.plate) != wanted]
     else:
@@ -362,7 +454,11 @@ def seed_from_settings(profile: Profile, settings: Any, today: date | None = Non
     today = today or date.today()
     if profile.me is None and getattr(settings, "first_name", None):
         profile = update_me(
-            profile, name=f"{settings.first_name} {settings.last_name}".strip(), source="config.yaml", today=today
+            profile,
+            first_name=settings.first_name,
+            last_name=getattr(settings, "last_name", ""),
+            source="config.yaml",
+            today=today,
         )
     for label in ("home", "work", "school"):
         place = getattr(settings, label, None)

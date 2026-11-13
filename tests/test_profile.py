@@ -25,7 +25,9 @@ def test_load_returns_empty_profile_when_file_is_missing(profile_path: Path) -> 
 
 
 def test_save_and_load_round_trip_with_owner_only_permissions(profile_path: Path) -> None:
-    profile = store.update_me(store.Profile(), name="Mario Rossi", birth_date=date(1980, 3, 5), today=TODAY)
+    profile = store.update_me(
+        store.Profile(), first_name="Mario", last_name="Rossi", birth_date=date(1980, 3, 5), today=TODAY
+    )
     profile = store.save_vehicle(profile, "Peugeot 2008", fuel="benzina", today=TODAY)
 
     saved_path = store.save_profile(profile)
@@ -107,7 +109,7 @@ def test_missing_essentials_follow_answers_and_skips() -> None:
     profile = store.Profile()
     assert [item["key"] for item in store.missing_essentials(profile)] == list(store.ESSENTIALS)
 
-    profile = store.update_me(profile, name="Mario", birth_date=date(1980, 3, 5), today=TODAY)
+    profile = store.update_me(profile, first_name="Mario", birth_date=date(1980, 3, 5), today=TODAY)
     profile = store.save_place(profile, "home", "Via Roma 1", today=TODAY)
     profile = store.set_preference(profile, "commute", "mezzi pubblici")
     profile = store.skip_essential(profile, "family")
@@ -128,14 +130,16 @@ def test_skip_essential_rejects_unknown_keys() -> None:
 
 
 def test_describe_profile_reports_ages_and_upcoming_birthdays() -> None:
-    profile = store.update_me(store.Profile(), name="Mario", birth_date=date(1980, 3, 5), today=TODAY)
+    profile = store.update_me(store.Profile(), first_name="Mario", birth_date=date(1980, 3, 5), today=TODAY)
     profile = store.save_family_member(profile, "Luca", relation="figlio", birth_date=date(2013, 12, 1), today=TODAY)
     profile = store.save_family_member(profile, "Anna", relation="figlia", birth_date=date(2012, 4, 20), today=TODAY)
 
     description = store.describe_profile(profile, today=TODAY)
 
-    assert description["ages"] == {"Mario": 52, "Luca": 12, "Anna": 18}
-    assert description["upcoming_birthdays"] == [{"name": "Luca", "date": "2026-12-01", "in_days": 19, "turns": 13}]
+    assert [(item["name"], item["age"]) for item in description["ages"]] == [("Mario", 52), ("Luca", 12), ("Anna", 18)]
+    assert description["upcoming_birthdays"] == [
+        {"name": "Luca", "birth_date": "2013-12-01", "date": "2026-12-01", "in_days": 19, "turns": 13}
+    ]
 
 
 def test_upcoming_birthday_handles_29_february() -> None:
@@ -185,8 +189,94 @@ def test_seed_from_settings_fills_only_missing_facts() -> None:
 
     seeded = store.seed_from_settings(profile, settings, today=TODAY)
 
-    assert seeded.me is not None and seeded.me.name == "Mario Rossi"
+    assert seeded.me is not None and seeded.me.full_name == "Mario Rossi"
     assert seeded.places["home"].address == "Via Napoli 3"
     assert seeded.places["work"].company == "ACME"
     assert seeded.places["work"].source == "config.yaml"
     assert "school" not in seeded.places
+
+
+def test_deceased_relatives_have_no_age_but_keep_anniversaries() -> None:
+    profile = store.save_family_member(
+        store.Profile(), "Nonno", relation="padre", birth_date=date(1931, 12, 1), deceased=True, today=TODAY
+    )
+    profile = store.save_family_member(profile, "Zia", relation="zia", birth_date=date(1950, 1, 1), today=TODAY)
+
+    description = store.describe_profile(profile, today=TODAY)
+
+    assert [(item["name"], item["age"]) for item in description["ages"]] == [("Zia", 76)]
+    assert description["upcoming_birthdays"] == [
+        {"name": "Nonno", "birth_date": "1931-12-01", "date": "2026-12-01", "in_days": 19, "deceased": True}
+    ]
+
+
+def test_deceased_flag_is_kept_on_later_updates() -> None:
+    profile = store.save_family_member(store.Profile(), "Nonna", deceased=True, today=TODAY)
+
+    profile = store.save_family_member(profile, "Nonna", relation="suocera", today=TODAY)
+
+    assert profile.family[0].deceased is True
+    assert profile.family[0].relation == "suocera"
+
+
+def test_namesakes_with_different_birth_dates_are_different_people() -> None:
+    profile = store.save_family_member(
+        store.Profile(), "Ferdinando", "Bianchi", relation="suocero", birth_date=date(1950, 6, 1), today=TODAY
+    )
+    profile = store.save_family_member(
+        profile, "Ferdinando", "Bianchi", relation="nipote", birth_date=date(2005, 3, 22), today=TODAY
+    )
+    profile = store.save_family_member(profile, "ferdinando", "bianchi", birth_date=date(1950, 6, 1), deceased=True)
+
+    assert [(p.relation, p.birth_date, p.deceased) for p in profile.family] == [
+        ("suocero", date(1950, 6, 1), True),
+        ("nipote", date(2005, 3, 22), False),
+    ]
+
+
+def test_ambiguous_name_without_birth_date_is_rejected() -> None:
+    profile = store.save_family_member(store.Profile(), "Ferdinando", "Bianchi", birth_date=date(1950, 6, 1))
+    profile = store.save_family_member(profile, "Ferdinando", "Bianchi", birth_date=date(2005, 3, 22))
+
+    with pytest.raises(store.AmbiguousPersonError, match="pass birth_date"):
+        store.save_family_member(profile, "Ferdinando", "Bianchi", relation="nipote")
+
+
+def test_birth_date_fills_the_single_undated_namesake() -> None:
+    profile = store.save_family_member(store.Profile(), "Anna", "Verdi", relation="suocera", today=TODAY)
+
+    profile = store.save_family_member(profile, "Anna", "Verdi", birth_date=date(1945, 5, 1), today=TODAY)
+
+    assert len(profile.family) == 1
+    assert profile.family[0].birth_date == date(1945, 5, 1)
+    assert profile.family[0].relation == "suocera"
+
+
+def test_forget_namesake_requires_birth_date() -> None:
+    profile = store.save_family_member(store.Profile(), "Ferdinando", "Bianchi", birth_date=date(1950, 6, 1))
+    profile = store.save_family_member(profile, "Ferdinando", "Bianchi", birth_date=date(2005, 3, 22))
+
+    with pytest.raises(store.AmbiguousPersonError):
+        store.forget(profile, "family", "Ferdinando Bianchi")
+    updated = store.forget(profile, "family", "Ferdinando Bianchi", birth_date=date(2005, 3, 22))
+
+    assert [p.birth_date for p in updated.family] == [date(1950, 6, 1)]
+
+
+def test_forget_by_nickname() -> None:
+    profile = store.save_family_member(store.Profile(), "Elisabetta", nickname="Betty", today=TODAY)
+
+    assert store.forget(profile, "family", "betty").family == []
+
+
+def test_legacy_single_name_field_is_split_on_load(profile_path: Path) -> None:
+    profile_path.parent.mkdir(parents=True)
+    profile_path.write_text(
+        "me:\n  name: Mario Rossi\nfamily:\n- name: Marco D'Angelo\n  relation: padre\n", encoding="utf-8"
+    )
+
+    profile = store.load_profile()
+
+    assert profile.me is not None
+    assert (profile.me.first_name, profile.me.last_name) == ("Mario", "Rossi")
+    assert (profile.family[0].first_name, profile.family[0].last_name) == ("Marco", "D'Angelo")
