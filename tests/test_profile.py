@@ -137,7 +137,7 @@ def test_describe_profile_reports_ages_and_upcoming_birthdays() -> None:
     description = store.describe_profile(profile, today=TODAY)
 
     assert [(item["name"], item["age"]) for item in description["ages"]] == [("Mario", 52), ("Luca", 12), ("Anna", 18)]
-    assert description["upcoming_birthdays"] == [
+    assert [{k: v for k, v in item.items() if k != "id"} for item in description["upcoming_birthdays"]] == [
         {"name": "Luca", "birth_date": "2013-12-01", "date": "2026-12-01", "in_days": 19, "turns": 13}
     ]
 
@@ -205,7 +205,7 @@ def test_deceased_relatives_have_no_age_but_keep_anniversaries() -> None:
     description = store.describe_profile(profile, today=TODAY)
 
     assert [(item["name"], item["age"]) for item in description["ages"]] == [("Zia", 76)]
-    assert description["upcoming_birthdays"] == [
+    assert [{k: v for k, v in item.items() if k != "id"} for item in description["upcoming_birthdays"]] == [
         {"name": "Nonno", "birth_date": "1931-12-01", "date": "2026-12-01", "in_days": 19, "deceased": True}
     ]
 
@@ -280,3 +280,84 @@ def test_legacy_single_name_field_is_split_on_load(profile_path: Path) -> None:
     assert profile.me is not None
     assert (profile.me.first_name, profile.me.last_name) == ("Mario", "Rossi")
     assert (profile.family[0].first_name, profile.family[0].last_name) == ("Marco", "D'Angelo")
+
+
+def test_people_and_vehicles_get_stable_unique_ids(profile_path: Path) -> None:
+    profile = store.save_family_member(store.Profile(), "Marco", "D'Angelo", birth_date=date(1945, 2, 3))
+    profile = store.save_family_member(profile, "Marco", "D'Angelo", birth_date=date(2012, 4, 20))
+    profile = store.save_vehicle(profile, "Peugeot 2008")
+    ids = [p.id for p in profile.family] + [v.id for v in profile.vehicles]
+
+    store.save_profile(profile)
+    reloaded = store.load_profile()
+
+    assert len(set(ids)) == 3
+    assert all(item_id.startswith(("p-", "v-")) for item_id in ids)
+    assert [p.id for p in reloaded.family] + [v.id for v in reloaded.vehicles] == ids
+
+
+def test_duplicate_ids_are_replaced_on_load() -> None:
+    profile = store.Profile.model_validate(
+        {"family": [{"id": "p-1", "first_name": "A"}, {"id": "p-1", "first_name": "B"}]}
+    )
+
+    assert profile.family[0].id == "p-1"
+    assert profile.family[1].id != "p-1"
+
+
+def test_save_family_member_by_id_can_change_identity_fields() -> None:
+    profile = store.save_family_member(store.Profile(), "Marco", relation="figlio", birth_date=date(2012, 4, 20))
+    person_id = profile.family[0].id
+
+    profile = store.save_family_member(
+        profile, last_name="Rossi", person_id=person_id, birth_date=date(2012, 4, 21), today=TODAY
+    )
+
+    person = profile.family[0]
+    assert len(profile.family) == 1
+    assert (person.id, person.full_name, person.birth_date, person.relation) == (
+        person_id,
+        "Marco D'Angelo",
+        date(2012, 4, 21),
+        "figlio",
+    )
+
+
+def test_save_family_member_with_unknown_id_raises() -> None:
+    with pytest.raises(KeyError, match="no family member with id"):
+        store.save_family_member(store.Profile(), person_id="p-missing", relation="figlio")
+
+
+def test_save_family_member_by_id_rejects_empty_first_name() -> None:
+    profile = store.save_family_member(store.Profile(), "Anna")
+
+    with pytest.raises(ValueError, match="first_name must not be empty"):
+        store.save_family_member(profile, first_name="  ", person_id=profile.family[0].id)
+
+
+def test_save_vehicle_by_id_can_rename() -> None:
+    profile = store.save_vehicle(store.Profile(), "Peugot 2008", fuel="benzina", today=TODAY)
+    vehicle_id = profile.vehicles[0].id
+
+    profile = store.save_vehicle(profile, "Peugeot 2008", vehicle_id=vehicle_id, today=TODAY)
+
+    assert [(v.id, v.name, v.fuel) for v in profile.vehicles] == [(vehicle_id, "Peugeot 2008", "benzina")]
+
+
+def test_forget_by_id() -> None:
+    profile = store.save_family_member(store.Profile(), "Ferdinando", "Bianchi", birth_date=date(1950, 6, 1))
+    profile = store.save_family_member(profile, "Ferdinando", "Bianchi", birth_date=date(2005, 3, 22))
+
+    updated = store.forget(profile, "family", profile.family[1].id)
+
+    assert [p.birth_date for p in updated.family] == [date(1950, 6, 1)]
+
+
+def test_describe_profile_exposes_ids() -> None:
+    profile = store.save_family_member(store.Profile(), "Luca", birth_date=date(2013, 12, 1), today=TODAY)
+
+    description = store.describe_profile(profile, today=TODAY)
+
+    assert description["profile"]["family"][0]["id"] == profile.family[0].id
+    assert description["ages"][0]["id"] == profile.family[0].id
+    assert description["upcoming_birthdays"][0]["id"] == profile.family[0].id

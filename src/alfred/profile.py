@@ -6,6 +6,7 @@ an updated copy, so callers decide when to ``save_profile``.
 """
 
 import os
+import secrets
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -43,6 +44,26 @@ class ProfileItem(BaseModel):
     updated: date | None = None
 
 
+def _new_id(prefix: str) -> str:
+    return f"{prefix}-{secrets.token_hex(3)}"
+
+
+class IdentifiedItem(ProfileItem):
+    """A profile item with a stable ``id`` assigned once, so any other field can be corrected."""
+
+    id: str = ""
+
+    @model_validator(mode="after")
+    def _assign_id(self) -> "IdentifiedItem":
+        if not self.id:
+            self.id = _new_id(self._id_prefix())
+        return self
+
+    @classmethod
+    def _id_prefix(cls) -> str:
+        return "item"
+
+
 def _not_in_future(value: date | None) -> date | None:
     if value is not None and value > date.today():
         raise ValueError("birth_date cannot be in the future")
@@ -53,7 +74,7 @@ class AmbiguousPersonError(ValueError):
     """Several people share the given name and no birth date tells them apart."""
 
 
-class Person(ProfileItem):
+class Person(IdentifiedItem):
     """The user or a family member, identified by first name, last name and birth date."""
 
     first_name: str
@@ -79,6 +100,10 @@ class Person(ProfileItem):
     def _check_birth_date(cls, value: date | None) -> date | None:
         return _not_in_future(value)
 
+    @classmethod
+    def _id_prefix(cls) -> str:
+        return "p"
+
     @property
     def full_name(self) -> str:
         return " ".join(part for part in (self.first_name, self.last_name) if part)
@@ -91,13 +116,17 @@ class Place(ProfileItem):
     company: str = ""
 
 
-class Vehicle(ProfileItem):
+class Vehicle(IdentifiedItem):
     """A vehicle the household uses."""
 
     name: str
     fuel: FuelType | None = None
     plate: str = ""
     owner: str = ""
+
+    @classmethod
+    def _id_prefix(cls) -> str:
+        return "v"
 
 
 class Note(ProfileItem):
@@ -118,6 +147,16 @@ class Profile(BaseModel):
     preferences: dict[str, str] = Field(default_factory=dict)
     notes: list[Note] = Field(default_factory=list)
     skipped: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _unique_ids(self) -> "Profile":
+        """Give a fresh id to any person or vehicle whose id is already taken."""
+        seen: set[str] = set()
+        for item in [*([self.me] if self.me else []), *self.family, *self.vehicles]:
+            while item.id in seen:
+                item.id = _new_id(item._id_prefix())
+            seen.add(item.id)
+        return self
 
 
 def profile_file() -> Path:
@@ -229,7 +268,12 @@ def describe_profile(profile: Profile, today: date | None = None) -> dict[str, A
     today = today or date.today()
     people = ([profile.me] if profile.me else []) + profile.family
     ages = [
-        {"name": person.full_name, "birth_date": person.birth_date.isoformat(), "age": age_on(person.birth_date, today)}
+        {
+            "id": person.id,
+            "name": person.full_name,
+            "birth_date": person.birth_date.isoformat(),
+            "age": age_on(person.birth_date, today),
+        }
         for person in people
         if person.birth_date and not person.deceased
     ]
@@ -241,6 +285,7 @@ def describe_profile(profile: Profile, today: date | None = None) -> dict[str, A
         days = (next_birthday - today).days
         if days <= UPCOMING_BIRTHDAY_DAYS:
             item: dict[str, Any] = {
+                "id": person.id,
                 "name": person.full_name,
                 "birth_date": person.birth_date.isoformat(),
                 "date": next_birthday.isoformat(),
@@ -298,11 +343,19 @@ def update_me(
     return profile.model_copy(update={"me": me})
 
 
+def _index_by_id(items: list[Any], item_id: str, what: str) -> int:
+    for index, item in enumerate(items):
+        if item.id == item_id.strip():
+            return index
+    raise KeyError(f"no {what} with id {item_id!r}")
+
+
 def save_family_member(
     profile: Profile,
-    first_name: str,
-    last_name: str = "",
+    first_name: str | None = None,
+    last_name: str | None = None,
     *,
+    person_id: str | None = None,
     nickname: str | None = None,
     relation: str | None = None,
     birth_date: date | None = None,
@@ -311,14 +364,25 @@ def save_family_member(
     source: str = "user",
     today: date | None = None,
 ) -> Profile:
-    """Add a family member or update the one with the same identity; ``None`` keeps current values.
+    """Add or update a family member; ``None`` keeps current values.
 
-    Identity is first name + last name + birth date, so namesakes stay separate people. Without a
-    birth date, an ambiguous name raises :class:`AmbiguousPersonError`.
+    With ``person_id`` (from :func:`describe_profile`) the person is updated directly and any field
+    can change, including first name, last name and birth date. Without it, the person is found by
+    first name + last name + birth date, so namesakes stay separate; an ambiguous name without a
+    birth date raises :class:`AmbiguousPersonError`, and an unknown identity adds a new person.
     """
-    first_name, last_name = _clean(first_name) or "", _clean(last_name) or ""
-    if not first_name:
-        raise ValueError("first_name must not be empty")
+    family = list(profile.family)
+    if person_id:
+        index: int | None = _index_by_id(family, person_id, "family member")
+        identity = _changes(first_name=_clean(first_name), last_name=_clean(last_name))
+        if identity.get("first_name") == "":
+            raise ValueError("first_name must not be empty")
+    else:
+        first_name, last_name = _clean(first_name) or "", _clean(last_name) or ""
+        if not first_name:
+            raise ValueError("first_name must not be empty")
+        index = _find_person(family, first_name, last_name, birth_date)
+        identity = {"first_name": first_name, "last_name": last_name}
     changes = _changes(
         nickname=_clean(nickname),
         relation=relation,
@@ -328,12 +392,10 @@ def save_family_member(
         source=source,
         updated=today or date.today(),
     )
-    family = list(profile.family)
-    index = _find_person(family, first_name, last_name, birth_date)
     if index is None:
-        family.append(Person(first_name=first_name, last_name=last_name, **changes))
+        family.append(Person(**identity, **changes))
     else:
-        family[index] = Person.model_validate({**family[index].model_dump(), **changes})
+        family[index] = Person.model_validate({**family[index].model_dump(), **identity, **changes})
     return profile.model_copy(update={"family": family})
 
 
@@ -362,20 +424,33 @@ def save_place(
 
 def save_vehicle(
     profile: Profile,
-    name: str,
+    name: str | None = None,
     *,
+    vehicle_id: str | None = None,
     fuel: FuelType | None = None,
     plate: str | None = None,
     owner: str | None = None,
     source: str = "user",
     today: date | None = None,
 ) -> Profile:
-    """Add a vehicle or update the one with the same plate (or, without plates, the same name)."""
-    if not name.strip():
-        raise ValueError("name must not be empty")
+    """Add or update a vehicle; ``None`` keeps current values.
+
+    With ``vehicle_id`` any field can change, including the name. Without it, the vehicle with the
+    same plate (or, without plates, the same name) is updated, else a new one is added.
+    """
     changes = _changes(fuel=fuel, plate=plate and plate.strip().upper(), owner=owner, source=source)
     changes["updated"] = today or date.today()
     vehicles = list(profile.vehicles)
+    if vehicle_id:
+        index = _index_by_id(vehicles, vehicle_id, "vehicle")
+        if name is not None:
+            if not name.strip():
+                raise ValueError("name must not be empty")
+            changes["name"] = name.strip()
+        vehicles[index] = Vehicle.model_validate({**vehicles[index].model_dump(), **changes})
+        return profile.model_copy(update={"vehicles": vehicles})
+    if not name or not name.strip():
+        raise ValueError("name must not be empty")
     for index, vehicle in enumerate(vehicles):
         same_plate = bool(changes.get("plate")) and vehicle.plate == changes["plate"]
         same_name = _key(vehicle.name) == _key(name) and (not changes.get("plate") or not vehicle.plate)
@@ -416,8 +491,8 @@ def skip_essential(profile: Profile, key: str) -> Profile:
 
 
 def forget(profile: Profile, section: Section, key: str = "", birth_date: date | None = None) -> Profile:
-    """Remove one item: a family member by full name or nickname (plus ``birth_date`` when
-    namesakes exist), a vehicle by name or plate, a place or preference by key, a note containing
+    """Remove one item: a family member by id, full name or nickname (plus ``birth_date`` when
+    namesakes exist), a vehicle by id, name or plate, a place or preference by key, a note containing
     ``key``, or the user's own details (``section="me"``)."""
     wanted = _key(key)
     if section == "me":
@@ -434,14 +509,14 @@ def forget(profile: Profile, section: Section, key: str = "", birth_date: date |
         matches = [
             person
             for person in profile.family
-            if wanted in (_key(person.full_name), _key(person.nickname))
+            if wanted in (_key(person.id), _key(person.full_name), _key(person.nickname))
             and (birth_date is None or person.birth_date == birth_date)
         ]
         if len(matches) > 1:
             raise AmbiguousPersonError(f"more than one {key!r} is saved; pass birth_date to say which one")
         remaining: list[Any] = [person for person in profile.family if all(person is not m for m in matches)]
     elif section == "vehicles":
-        remaining = [v for v in profile.vehicles if _key(v.name) != wanted and _key(v.plate) != wanted]
+        remaining = [v for v in profile.vehicles if wanted not in (_key(v.id), _key(v.name), _key(v.plate))]
     else:
         remaining = [note for note in profile.notes if wanted not in _key(note.text)]
     if len(remaining) == len(getattr(profile, section)):

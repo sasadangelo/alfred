@@ -76,9 +76,10 @@ def save_my_details(
 
 @mcp.tool
 def save_family_member(
-    first_name: str,
-    last_name: str = "",
+    first_name: str | None = None,
+    last_name: str | None = None,
     birth_date: str | None = None,
+    person_id: str | None = None,
     nickname: str | None = None,
     relation: str | None = None,
     birth_place: str | None = None,
@@ -87,8 +88,11 @@ def save_family_member(
 ) -> dict[str, Any]:
     """Add or update a family member; omitted fields are kept.
 
-    A person is identified by first_name + last_name + birth_date, so namesakes stay separate:
-    pass birth_date whenever it is known. relation e.g. "moglie", "figlio"; nickname e.g. "Betty".
+    To change an existing person, pass their person_id (the "id" in get_user_profile): then any
+    field can be corrected, including first_name, last_name and birth_date. Without person_id a
+    person is found by first_name + last_name + birth_date, so namesakes stay separate (pass
+    birth_date whenever it is known), and a new person is added when none matches.
+    relation e.g. "moglie", "figlio"; nickname e.g. "Betty".
     deceased=true marks a relative who has passed away: no age is computed for them.
     """
     return _change(
@@ -96,6 +100,7 @@ def save_family_member(
             p,
             first_name,
             last_name,
+            person_id=person_id,
             nickname=nickname,
             relation=relation,
             birth_date=_parse_date(birth_date),
@@ -114,14 +119,21 @@ def save_place(label: str, address: str, company: str | None = None, source: str
 
 @mcp.tool
 def save_vehicle(
-    name: str,
+    name: str | None = None,
+    vehicle_id: str | None = None,
     fuel: store.FuelType | None = None,
     plate: str | None = None,
     owner: str | None = None,
     source: str = "user",
 ) -> dict[str, Any]:
-    """Add or update a vehicle (name e.g. "Peugeot 2008"); owner is the family member who uses it."""
-    return _change(lambda p: store.save_vehicle(p, name, fuel=fuel, plate=plate, owner=owner, source=source))
+    """Add or update a vehicle (name e.g. "Peugeot 2008"); owner is the family member who uses it.
+
+    Pass vehicle_id (the "id" in get_user_profile) to correct any field of an existing vehicle,
+    including its name; without it the vehicle is matched by plate, then by name.
+    """
+    return _change(
+        lambda p: store.save_vehicle(p, name, vehicle_id=vehicle_id, fuel=fuel, plate=plate, owner=owner, source=source)
+    )
 
 
 @mcp.tool
@@ -144,8 +156,8 @@ def skip_onboarding_question(key: str) -> dict[str, Any]:
 
 @mcp.tool
 def forget_profile_item(section: store.Section, key: str = "", birth_date: str | None = None) -> dict[str, Any]:
-    """Delete one saved fact: a family member by full name or nickname (plus birth_date for namesakes),
-    a vehicle by name or plate, a place or preference by key, a note containing key, or the user's own
+    """Delete one saved fact: a family member by id, full name or nickname (plus birth_date for
+    namesakes), a vehicle by id, name or plate, a place or preference by key, a note containing key, or the user's own
     details with section "me"."""
     return _change(lambda p: store.forget(p, section, key, _parse_date(birth_date)))
 
