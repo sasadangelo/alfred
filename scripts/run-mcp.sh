@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start one of the project's MCP servers over stdio: run-mcp.sh google-workspace|user-profile
+# Start one of the project's MCP servers over stdio: run-mcp.sh google-workspace|user-profile|weather
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,8 +12,9 @@ fi
 case "${1:-}" in
   google-workspace) MODULE="alfred.google_workspace_mcp" ;;
   user-profile) MODULE="alfred.profile_mcp" ;;
+  weather) MODULE="alfred.weather_mcp" ;;
   *)
-    echo "Usage: $0 google-workspace|user-profile" >&2
+    echo "Usage: $0 google-workspace|user-profile|weather" >&2
     exit 2
     ;;
 esac

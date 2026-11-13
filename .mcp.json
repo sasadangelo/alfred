@@ -2,11 +2,24 @@
   "mcpServers": {
     "google-workspace": {
       "command": "bash",
-      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/run-mcp.sh", "google-workspace"]
+      "args": [
+        "${CLAUDE_PROJECT_DIR:-.}/scripts/run-mcp.sh",
+        "google-workspace"
+      ]
     },
     "user-profile": {
       "command": "bash",
-      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/run-mcp.sh", "user-profile"]
+      "args": [
+        "${CLAUDE_PROJECT_DIR:-.}/scripts/run-mcp.sh",
+        "user-profile"
+      ]
+    },
+    "weather": {
+      "command": "bash",
+      "args": [
+        "${CLAUDE_PROJECT_DIR:-.}/scripts/run-mcp.sh",
+        "weather"
+      ]
     }
   }
 }
