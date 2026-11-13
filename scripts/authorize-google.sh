@@ -17,4 +17,4 @@ fi
 
 export ALFRED_CONFIG_FILE="$CONFIG_FILE"
 cd "$PROJECT_ROOT"
-uv run python -m alfred.calendar
+uv run python -m alfred.google_auth

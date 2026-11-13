@@ -1,121 +1,39 @@
-"""Google Calendar authorization and event operations."""
+"""Google Calendar event operations."""
 
-import os
 from datetime import UTC, date, datetime
-from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
-import requests
-from google.auth.transport.requests import AuthorizedSession, Request
+from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+
+from alfred.google_auth import (
+    CALENDAR_EVENTS_SCOPE,
+    CALENDAR_LIST_SCOPE,
+    REQUEST_TIMEOUT_SECONDS,
+    GoogleAPIError,
+    check_response,
+    get_credentials,
+)
 
 GOOGLE_API_URL = "https://www.googleapis.com/calendar/v3"
 CALENDAR_API_URL = f"{GOOGLE_API_URL}/calendars"
 CALENDAR_LIST_URL = f"{GOOGLE_API_URL}/users/me/calendarList"
-EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events"
-CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
-CALENDAR_SCOPES = [EVENTS_SCOPE, CALENDAR_LIST_SCOPE]
-CONFIG_DIR_ENV = "ALFRED_CONFIG_DIR"
-CLIENT_SECRET_FILE_ENV = "ALFRED_GOOGLE_CALENDAR_CLIENT_SECRET_FILE"  # pragma: allowlist secret
-TOKEN_FILE_ENV = "ALFRED_GOOGLE_CALENDAR_TOKEN_FILE"
-DEFAULT_CONFIG_DIR = Path.home() / ".claude" / "config"
-LEGACY_CREDENTIALS_DIR = Path(__file__).resolve().parents[2] / "credentials"
-CLIENT_SECRET_FILENAME = "google-oauth-client.json"  # pragma: allowlist secret
-TOKEN_FILENAME = "google-calendar-token.json"
-AUTHORIZE_HINT = "Run `bash scripts/authorize-google-calendar.sh` to authorize Alfred again."
-REQUEST_TIMEOUT_SECONDS = 15
+EVENTS_SCOPE = CALENDAR_EVENTS_SCOPE
 MAX_EVENTS = 10000
 PAGE_SIZE = 2500
 
-
-class CalendarError(RuntimeError):
-    """A Google Calendar failure explained in terms the user can act on."""
-
-
-def _credential_file(env_name: str, filename: str) -> Path:
-    """Resolve a credential file: explicit env var, then the config dir, then the legacy repo folder."""
-    if explicit := os.environ.get(env_name):
-        return Path(explicit).expanduser()
-    preferred = Path(os.environ.get(CONFIG_DIR_ENV, DEFAULT_CONFIG_DIR)).expanduser() / filename
-    legacy = LEGACY_CREDENTIALS_DIR / filename
-    if not preferred.exists() and legacy.exists():
-        return legacy
-    return preferred
-
-
-def _client_secret_file() -> Path:
-    return _credential_file(CLIENT_SECRET_FILE_ENV, CLIENT_SECRET_FILENAME)
-
-
-def _token_file() -> Path:
-    return _credential_file(TOKEN_FILE_ENV, TOKEN_FILENAME)
-
-
-def authorize_calendar() -> None:
-    """Authorize Alfred to manage Google Calendar events and read the calendar list."""
-    client_secret_file = _client_secret_file()
-    if not client_secret_file.is_file():
-        raise FileNotFoundError(f"Google OAuth client file not found: {client_secret_file}")
-
-    flow = InstalledAppFlow.from_client_secrets_file(str(client_secret_file), CALENDAR_SCOPES)
-    credentials = flow.run_local_server(port=0, access_type="offline", prompt="consent")
-    token_file = _token_file()
-    token_file.parent.mkdir(parents=True, exist_ok=True)
-    token_file.write_text(credentials.to_json(), encoding="utf-8")
-    token_file.chmod(mode=0o600)
-    print(f"Saved Google Calendar token to {token_file}")
+# Calendar failures are GoogleAPIError; the old name is kept for callers.
+CalendarError = GoogleAPIError
 
 
 def _get_credentials(required_scope: str = EVENTS_SCOPE) -> Credentials:
-    token_file = _token_file()
-    if not token_file.is_file():
-        raise CalendarError(f"Google Calendar is not authorized yet (no token at {token_file}). {AUTHORIZE_HINT}")
-
-    # Load with the token's own scopes so older tokens keep working for the operations they cover.
-    credentials = Credentials.from_authorized_user_file(str(token_file))
-    if not credentials.has_scopes([required_scope]):
-        raise CalendarError(f"The saved Google authorization does not include {required_scope}. {AUTHORIZE_HINT}")
-    if credentials.expired and credentials.refresh_token:
-        credentials.refresh(Request())
-        token_file.write_text(credentials.to_json(), encoding="utf-8")
-        token_file.chmod(mode=0o600)
-    if not credentials.valid:
-        raise CalendarError(f"Google Calendar credentials are invalid or expired. {AUTHORIZE_HINT}")
-    return credentials
-
-
-def _google_message(response: Any) -> str:
-    try:
-        return str(response.json()["error"]["message"])
-    except (ValueError, KeyError, TypeError):
-        return str(getattr(response, "text", "")).strip()[:200]
+    return get_credentials(required_scope)
 
 
 def _check_response(response: Any, what: str) -> None:
-    """Raise a CalendarError with a clear explanation when Google rejects a request."""
-    try:
-        response.raise_for_status()
-    except requests.HTTPError as error:
-        status = response.status_code
-        detail = _google_message(response)
-        if status == 401:
-            message = f"Google rejected the saved credentials. {AUTHORIZE_HINT}"
-        elif status == 403 and "insufficient" in detail.lower():
-            message = f"The saved Google authorization does not allow this operation. {AUTHORIZE_HINT}"
-        elif status == 403:
-            message = f"Google refused to {what}: {detail}"
-        elif status == 404:
-            message = f"Could not {what}: the event or calendar was not found (wrong id, or already deleted)."
-        elif status == 410:
-            message = f"Could not {what}: the event has already been deleted."
-        elif status == 429 or status >= 500:
-            message = f"Google Calendar is temporarily unavailable ({status}); try again shortly."
-        else:
-            message = f"Google rejected the request to {what} ({status}): {detail}"
-        raise CalendarError(message) from error
+    check_response(response, what, "event or calendar")
 
 
 def _calendar_url(calendar_id: str) -> str:
@@ -500,7 +418,3 @@ def delete_event(
     authorized_session = session or AuthorizedSession(_get_credentials())
     response = authorized_session.delete(url, timeout=REQUEST_TIMEOUT_SECONDS)
     _check_response(response, "delete the event")
-
-
-if __name__ == "__main__":
-    authorize_calendar()

@@ -1,14 +1,12 @@
 """Tests for Google Calendar event operations."""
 
 from datetime import date, datetime
-from pathlib import Path
 from unittest.mock import Mock
 from zoneinfo import ZoneInfo
 
 import pytest
 import requests
 
-from alfred import calendar
 from alfred.calendar import (
     CalendarError,
     check_availability,
@@ -424,8 +422,8 @@ def _http_error_response(status: int, message: str = "") -> Mock:
     [
         (404, "Not Found", "not found"),
         (410, "Resource has been deleted", "already been deleted"),
-        (403, "Request had insufficient authentication scopes.", "authorize-google-calendar.sh"),
-        (401, "Invalid Credentials", "authorize-google-calendar.sh"),
+        (403, "Request had insufficient authentication scopes.", "authorize-google.sh"),
+        (401, "Invalid Credentials", "authorize-google.sh"),
         (400, "Invalid recurrence rule", "Invalid recurrence rule"),
         (503, "Backend Error", "temporarily unavailable"),
     ],
@@ -436,35 +434,3 @@ def test_google_errors_become_clear_calendar_errors(status: int, google_message:
 
     with pytest.raises(CalendarError, match=expected):
         delete_event("event-1", session=session)
-
-
-def test_credential_files_prefer_config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv(calendar.TOKEN_FILE_ENV, raising=False)
-    monkeypatch.setenv(calendar.CONFIG_DIR_ENV, str(tmp_path / "config"))
-    monkeypatch.setattr(calendar, "LEGACY_CREDENTIALS_DIR", tmp_path / "legacy")
-
-    assert calendar._token_file() == tmp_path / "config" / calendar.TOKEN_FILENAME
-
-
-def test_credential_files_fall_back_to_legacy_repo_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    legacy = tmp_path / "legacy"
-    legacy.mkdir()
-    (legacy / calendar.TOKEN_FILENAME).write_text("{}", encoding="utf-8")
-    monkeypatch.delenv(calendar.TOKEN_FILE_ENV, raising=False)
-    monkeypatch.setenv(calendar.CONFIG_DIR_ENV, str(tmp_path / "config"))
-    monkeypatch.setattr(calendar, "LEGACY_CREDENTIALS_DIR", legacy)
-
-    assert calendar._token_file() == legacy / calendar.TOKEN_FILENAME
-
-
-def test_credential_files_honour_explicit_env_var(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(calendar.TOKEN_FILE_ENV, str(tmp_path / "token.json"))
-
-    assert calendar._token_file() == tmp_path / "token.json"
-
-
-def test_missing_token_raises_clear_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(calendar.TOKEN_FILE_ENV, str(tmp_path / "missing.json"))
-
-    with pytest.raises(CalendarError, match="not authorized yet"):
-        calendar._get_credentials()

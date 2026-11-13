@@ -56,7 +56,7 @@ If a tool reports that Google Calendar is not authorized, or that the saved auth
 
 1. Ask the user to enable the Google Calendar API and create an OAuth client of type **Desktop app** in Google Cloud Console.
 2. Have the user save the downloaded client JSON as `~/.claude/config/google-oauth-client.json` (or `credentials/google-oauth-client.json` in the Alfred repository). Never ask them to paste the file or its contents into chat.
-3. Run `bash scripts/authorize-google-calendar.sh` and let the user complete Google's consent screen in the browser.
+3. Run `bash scripts/authorize-google.sh` and let the user complete Google's consent screen in the browser.
 4. Restart or reconnect the `google-workspace` MCP server.
 
 The generated token is stored next to the client file, as `google-calendar-token.json`, with owner-only permissions. Do not print, copy, or commit OAuth files.
