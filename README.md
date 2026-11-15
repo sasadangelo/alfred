@@ -91,7 +91,7 @@ Alfred stores everything in the plugin data directory, `~/.claude/plugins/data/a
 | `google-oauth-client.json`, `google-token.json` | Google credentials |
 | `venv/` | The Python environment |
 
-Files are created with owner-only permissions. Nothing is sent anywhere except the requests each feature needs: Google APIs for Calendar, Tasks and Gmail, the town name (never your address or name) to Open-Meteo, and the start and end addresses of a trip to TomTom.
+Files are created with owner-only permissions. Nothing is sent anywhere except the requests each feature needs: Google APIs for Calendar, Tasks and Gmail, coordinates or the town name (never your address or name) to Open-Meteo, the coordinates of a trip to TomTom, and an address to look up only when a place has no saved coordinates yet (TomTom, or OpenStreetMap for streets TomTom does not know).
 
 Uninstalling the plugin deletes this directory. To keep your profile, uninstall with `--keep-data`.
 

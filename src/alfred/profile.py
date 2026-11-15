@@ -20,6 +20,7 @@ from alfred.paths import data_dir, env_value
 PROFILE_FILE_ENV = "ALFRED_PROFILE_FILE"
 PROFILE_FILENAME = "profile.yaml"
 UPCOMING_BIRTHDAY_DAYS = 30
+UPCOMING_DEADLINE_DAYS = 30
 
 FuelType = Literal["benzina", "gasolio", "gpl", "metano", "elettrica", "ibrida"]
 Section = Literal["me", "family", "places", "vehicles", "preferences", "notes"]
@@ -36,12 +37,19 @@ ESSENTIALS: dict[str, str] = {
 
 
 class ProfileItem(BaseModel):
-    """Common metadata recording where a fact came from and when it was last confirmed."""
+    """Common metadata recording where a fact came from."""
 
     model_config = ConfigDict(extra="forbid")
 
     source: str = "user"
-    updated: date | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_legacy_fields(cls, data: Any) -> Any:
+        """Accept profiles saved when each item also recorded its last update date."""
+        if isinstance(data, dict) and "updated" in data:
+            data = {key: value for key, value in data.items() if key != "updated"}
+        return data
 
 
 def _new_id(prefix: str) -> str:
@@ -110,19 +118,53 @@ class Person(IdentifiedItem):
 
 
 class Place(ProfileItem):
-    """A named place such as home, work or school."""
+    """A named place such as home, work or school, with optional verified coordinates."""
 
     address: str
     company: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
+
+    @model_validator(mode="after")
+    def _check_coordinates(self) -> "Place":
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be given together")
+        if (
+            self.latitude is not None
+            and self.longitude is not None
+            and (not -90 <= self.latitude <= 90 or not -180 <= self.longitude <= 180)
+        ):
+            raise ValueError("latitude/longitude out of range")
+        return self
+
+
+def _yearly_date(value: str) -> date:
+    """Parse a yearly day ("MM-DD") using a leap year, so 02-29 is accepted."""
+    try:
+        return date.fromisoformat(f"2000-{value}")
+    except ValueError as error:
+        raise ValueError(f"deadline {value!r} must be a day of the year as MM-DD, e.g. 09-30") from error
 
 
 class Vehicle(IdentifiedItem):
-    """A vehicle the household uses."""
+    """A vehicle the household uses, with yearly deadlines such as {"bollo": "09-30"}."""
 
     name: str
     fuel: FuelType | None = None
     plate: str = ""
     owner: str = ""
+    deadlines: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("deadlines")
+    @classmethod
+    def _check_deadlines(cls, value: dict[str, str]) -> dict[str, str]:
+        cleaned = {}
+        for kind, day in value.items():
+            name = " ".join(kind.split()).casefold()
+            if not name:
+                raise ValueError("deadline names must not be empty")
+            cleaned[name] = _yearly_date(day.strip()).strftime("%m-%d")
+        return cleaned
 
     @classmethod
     def _id_prefix(cls) -> str:
@@ -259,6 +301,25 @@ def missing_essentials(profile: Profile) -> list[dict[str, str]]:
     ]
 
 
+def _upcoming_deadlines(profile: Profile, today: date) -> list[dict[str, Any]]:
+    upcoming = []
+    for vehicle in profile.vehicles:
+        for kind, day in vehicle.deadlines.items():
+            due = _next_birthday(_yearly_date(day), today)
+            days = (due - today).days
+            if days <= UPCOMING_DEADLINE_DAYS:
+                upcoming.append(
+                    {
+                        "vehicle": vehicle.name,
+                        "vehicle_id": vehicle.id,
+                        "kind": kind,
+                        "date": due.isoformat(),
+                        "in_days": days,
+                    }
+                )
+    return sorted(upcoming, key=lambda item: item["in_days"])
+
+
 def describe_profile(profile: Profile, today: date | None = None) -> dict[str, Any]:
     """Return the profile plus derived facts: ages, upcoming birthdays and missing essentials.
 
@@ -300,6 +361,7 @@ def describe_profile(profile: Profile, today: date | None = None) -> dict[str, A
         "profile": profile.model_dump(mode="json", exclude_none=True),
         "ages": ages,
         "upcoming_birthdays": sorted(upcoming, key=lambda item: item["in_days"]),
+        "upcoming_deadlines": _upcoming_deadlines(profile, today),
         "missing_essentials": missing_essentials(profile),
         "today": today.isoformat(),
     }
@@ -322,7 +384,6 @@ def update_me(
     birth_date: date | None = None,
     birth_place: str | None = None,
     source: str = "user",
-    today: date | None = None,
 ) -> Profile:
     """Set facts about the user; ``None`` keeps the current value."""
     changes = _changes(
@@ -332,7 +393,6 @@ def update_me(
         birth_date=birth_date,
         birth_place=birth_place,
         source=source,
-        updated=today or date.today(),
     )
     if profile.me is None:
         if not changes.get("first_name"):
@@ -362,7 +422,6 @@ def save_family_member(
     birth_place: str | None = None,
     deceased: bool | None = None,
     source: str = "user",
-    today: date | None = None,
 ) -> Profile:
     """Add or update a family member; ``None`` keeps current values.
 
@@ -390,7 +449,6 @@ def save_family_member(
         birth_place=birth_place,
         deceased=deceased,
         source=source,
-        updated=today or date.today(),
     )
     if index is None:
         family.append(Person(**identity, **changes))
@@ -402,24 +460,49 @@ def save_family_member(
 def save_place(
     profile: Profile,
     label: str,
-    address: str,
+    address: str | None = None,
     *,
     company: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
     source: str = "user",
-    today: date | None = None,
 ) -> Profile:
-    """Add or replace a named place; ``label`` is normalized (e.g. "home", "work", "school")."""
+    """Add or update a named place; ``label`` is normalized (e.g. "home", "work", "school").
+
+    ``None`` keeps the current value, so a place's coordinates can be added without repeating the
+    address. When the address changes and no new coordinates are given, the old ones are dropped
+    so they cannot point to the previous address.
+    """
     label = _key(label).replace(" ", "_")
-    if not label or not address.strip():
-        raise ValueError("label and address must not be empty")
+    if not label:
+        raise ValueError("label must not be empty")
     current = profile.places.get(label)
+    new_address = address.strip() if address is not None else (current.address if current else "")
+    if not new_address:
+        raise ValueError("address is required for a new place")
+    if (latitude is None) != (longitude is None):
+        raise ValueError("latitude and longitude must be given together")
+    if latitude is None and current is not None and _key(current.address) == _key(new_address):
+        latitude, longitude = current.latitude, current.longitude
     place = Place(
-        address=address.strip(),
+        address=new_address,
         company=company if company is not None else (current.company if current else ""),
+        latitude=latitude,
+        longitude=longitude,
         source=source,
-        updated=today or date.today(),
     )
     return profile.model_copy(update={"places": {**profile.places, label: place}})
+
+
+def _merge_deadlines(current: dict[str, str], updates: dict[str, str | None] | None) -> dict[str, str]:
+    merged = dict(current)
+    for kind, day in (updates or {}).items():
+        name = " ".join(kind.split()).casefold()
+        if day is None or not str(day).strip():
+            merged.pop(name, None)
+        else:
+            merged[name] = str(day).strip()
+    return merged
 
 
 def save_vehicle(
@@ -430,16 +513,16 @@ def save_vehicle(
     fuel: FuelType | None = None,
     plate: str | None = None,
     owner: str | None = None,
+    deadlines: dict[str, str | None] | None = None,
     source: str = "user",
-    today: date | None = None,
 ) -> Profile:
     """Add or update a vehicle; ``None`` keeps current values.
 
     With ``vehicle_id`` any field can change, including the name. Without it, the vehicle with the
     same plate (or, without plates, the same name) is updated, else a new one is added.
+    ``deadlines`` merges yearly deadlines as MM-DD (e.g. {"bollo": "09-30"}); an empty value removes one.
     """
     changes = _changes(fuel=fuel, plate=plate and plate.strip().upper(), owner=owner, source=source)
-    changes["updated"] = today or date.today()
     vehicles = list(profile.vehicles)
     if vehicle_id:
         index = _index_by_id(vehicles, vehicle_id, "vehicle")
@@ -447,6 +530,7 @@ def save_vehicle(
             if not name.strip():
                 raise ValueError("name must not be empty")
             changes["name"] = name.strip()
+        changes["deadlines"] = _merge_deadlines(vehicles[index].deadlines, deadlines)
         vehicles[index] = Vehicle.model_validate({**vehicles[index].model_dump(), **changes})
         return profile.model_copy(update={"vehicles": vehicles})
     if not name or not name.strip():
@@ -455,10 +539,11 @@ def save_vehicle(
         same_plate = bool(changes.get("plate")) and vehicle.plate == changes["plate"]
         same_name = _key(vehicle.name) == _key(name) and (not changes.get("plate") or not vehicle.plate)
         if same_plate or same_name:
+            changes["deadlines"] = _merge_deadlines(vehicle.deadlines, deadlines)
             vehicles[index] = Vehicle.model_validate({**vehicle.model_dump(), **changes, "name": name.strip()})
             break
     else:
-        vehicles.append(Vehicle(name=name.strip(), **changes))
+        vehicles.append(Vehicle(name=name.strip(), deadlines=_merge_deadlines({}, deadlines), **changes))
     return profile.model_copy(update={"vehicles": vehicles})
 
 
@@ -471,13 +556,13 @@ def set_preference(profile: Profile, key: str, value: str) -> Profile:
     return profile.model_copy(update={"preferences": {**profile.preferences, key: value.strip()}, "skipped": skipped})
 
 
-def add_note(profile: Profile, text: str, *, source: str = "user", today: date | None = None) -> Profile:
+def add_note(profile: Profile, text: str, *, source: str = "user") -> Profile:
     """Append a free-form note, ignoring exact duplicates."""
     if not text.strip():
         raise ValueError("text must not be empty")
     if any(_key(note.text) == _key(text) for note in profile.notes):
         return profile
-    note = Note(text=text.strip(), source=source, updated=today or date.today())
+    note = Note(text=text.strip(), source=source)
     return profile.model_copy(update={"notes": [*profile.notes, note]})
 
 

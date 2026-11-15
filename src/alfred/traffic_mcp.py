@@ -31,7 +31,8 @@ def _parse_time(value: str | None) -> datetime | None:
 @mcp.tool
 def find_address(query: str, count: int = 5, country: str | None = None) -> list[dict[str, Any]]:
     """Find coordinates for an address or place, e.g. "Via Roma 1, Bologna"; country is an ISO code
-    such as "IT" to restrict the search."""
+    such as "IT". Each candidate has its source (tomtom or openstreetmap) and street_matches, true when
+    its street is the one asked; OpenStreetMap is used when TomTom does not know the street."""
     return traffic_routes.find_address(query, count=count, country=country)
 
 

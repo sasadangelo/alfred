@@ -10,13 +10,13 @@ Alfred keeps a local profile of the user through the `user-profile` MCP tools. U
 ## Read before personalizing
 
 1. Call `get_user_profile` before any answer or report that depends on who the user is: places for traffic or fuel, vehicles' fuel type, family birthdays, preferences.
-2. Use the derived fields: `ages` (never store ages, they are computed from birth dates), `upcoming_birthdays`, and `missing_essentials`.
+2. Use the derived fields: `ages` (never store ages, they are computed from birth dates), `upcoming_birthdays`, `upcoming_deadlines` (vehicle deadlines in the next 30 days), and `missing_essentials`.
 
 ## Learn during conversation
 
 1. When the user mentions a new or changed personal fact, propose saving it in one short line, for example: "Vuoi che mi ricordi che Giulia è nata a Torino il 12 maggio 1980?"
 2. Save only after the user agrees. If the user explicitly asks to remember something, or dictates their details for this purpose, that counts as agreement.
-3. Use the dedicated tool for each fact: `save_my_details`, `save_family_member`, `save_place` (labels `home`, `work`, `school`, or a short name), `save_vehicle`, `set_user_preference` (for example `commute`), and `add_profile_note` only for facts without a field.
+3. Use the dedicated tool for each fact: `save_my_details`, `save_family_member`, `save_place` (labels `home`, `work`, `school`, or a short name; it also stores a place's verified `latitude` and `longitude`, used by traffic and weather), `save_vehicle` (yearly deadlines such as bollo, assicurazione, revisione go in `deadlines` as MM-DD, not in notes; offer to add a yearly calendar reminder with the `google-calendar` skill), `set_user_preference` (for example `commute`), and `add_profile_note` only for facts without a field.
 4. A person is identified by first name, last name and birth date. Pass `first_name` and `last_name` separately (Italian names are often given surname first, as in "Rossi Anna": store first name Anna, last name Rossi), and pass `birth_date` whenever it is known so namesakes stay separate. Put short names such as "Betty" or "Beppe" in `nickname`. If a tool reports that a name is ambiguous, ask the user for the birth date. To correct an existing person or vehicle (a wrong surname, birth date, or model), pass its `id` from `get_user_profile` as `person_id` or `vehicle_id`: every field can then change. Without an id, a changed name or birth date would add a new person.
 5. Never guess. If a detail is ambiguous (a date written as 07/01/2013, a missing fuel type), ask before saving. Read dates in Italian order (day/month/year) unless the user says otherwise.
 6. Mark relatives who have passed away with `deceased=true` rather than writing it in the relation. Mention their birthdays as anniversaries, never as celebrations or with an age.

@@ -33,8 +33,8 @@ def _parse_date(value: str | None) -> date | None:
 
 @mcp.tool
 def get_user_profile() -> dict[str, Any]:
-    """Return the saved profile plus derived ages, upcoming birthdays (next 30 days) and the
-    onboarding questions still unanswered (missing_essentials)."""
+    """Return the saved profile plus derived ages, upcoming birthdays and vehicle deadlines (next 30
+    days) and the onboarding questions still unanswered (missing_essentials)."""
     return store.describe_profile(_load())
 
 
@@ -102,9 +102,24 @@ def save_family_member(
 
 
 @mcp.tool
-def save_place(label: str, address: str, company: str | None = None, source: str = "user") -> dict[str, Any]:
-    """Add or replace a named place: label "home", "work", "school", or any other name (e.g. "palestra")."""
-    return _change(lambda p: store.save_place(p, label, address, company=company, source=source))
+def save_place(
+    label: str,
+    address: str | None = None,
+    company: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    source: str = "user",
+) -> dict[str, Any]:
+    """Add or update a named place: label "home", "work", "school", or any other name (e.g. "palestra").
+
+    Omitted fields are kept, so verified coordinates can be added to an existing place without its
+    address. Changing the address without new coordinates drops the old coordinates.
+    """
+    return _change(
+        lambda p: store.save_place(
+            p, label, address, company=company, latitude=latitude, longitude=longitude, source=source
+        )
+    )
 
 
 @mcp.tool
@@ -114,15 +129,20 @@ def save_vehicle(
     fuel: store.FuelType | None = None,
     plate: str | None = None,
     owner: str | None = None,
+    deadlines: dict[str, str | None] | None = None,
     source: str = "user",
 ) -> dict[str, Any]:
     """Add or update a vehicle (name e.g. "Peugeot 2008"); owner is the family member who uses it.
 
     Pass vehicle_id (the "id" in get_user_profile) to correct any field of an existing vehicle,
     including its name; without it the vehicle is matched by plate, then by name.
+    deadlines merges yearly deadlines as MM-DD, e.g. {"bollo": "09-30", "assicurazione": "12-31"};
+    an empty value removes one. Upcoming ones appear in get_user_profile as upcoming_deadlines.
     """
     return _change(
-        lambda p: store.save_vehicle(p, name, vehicle_id=vehicle_id, fuel=fuel, plate=plate, owner=owner, source=source)
+        lambda p: store.save_vehicle(
+            p, name, vehicle_id=vehicle_id, fuel=fuel, plate=plate, owner=owner, deadlines=deadlines, source=source
+        )
     )
 
 

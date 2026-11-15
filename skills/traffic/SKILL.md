@@ -9,8 +9,10 @@ Use the `traffic` MCP tools (TomTom) for car routes with live and predicted traf
 
 ## Places
 
-1. Home and work come from `places.home` and `places.work` in the profile. For any other place, use what the user said or the event's location.
-2. Call `find_address` to get coordinates. If several results match, pick the one in the user's area (same municipality or region as home); if still unclear, ask. Use `country="IT"` for Italian addresses unless the user says otherwise.
+1. Home, work, and other saved places come from `places` in the profile. When a place has `latitude` and `longitude`, use them directly: do not search its address again.
+2. Otherwise call `find_address` (use `country="IT"` for Italian addresses unless the user says otherwise). Prefer a candidate with `street_matches: true`; TomTom does not know every street, so such a match may come from OpenStreetMap (`source`). If none matches, or several do, show the options and ask.
+3. For a saved place without coordinates, tell the user which address you found and, after they confirm, save its coordinates with `save_place` (label, `latitude`, `longitude`) from the `user-profile` server, so the next trips use them.
+4. For a one-off destination (an appointment), use the best match without saving it.
 
 ## Routes
 

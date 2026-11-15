@@ -25,10 +25,8 @@ def test_load_returns_empty_profile_when_file_is_missing(profile_path: Path) -> 
 
 
 def test_save_and_load_round_trip_with_owner_only_permissions(profile_path: Path) -> None:
-    profile = store.update_me(
-        store.Profile(), first_name="Mario", last_name="Rossi", birth_date=date(1980, 3, 5), today=TODAY
-    )
-    profile = store.save_vehicle(profile, "Peugeot 2008", fuel="benzina", today=TODAY)
+    profile = store.update_me(store.Profile(), first_name="Mario", last_name="Rossi", birth_date=date(1980, 3, 5))
+    profile = store.save_vehicle(profile, "Peugeot 2008", fuel="benzina")
 
     saved_path = store.save_profile(profile)
 
@@ -58,9 +56,9 @@ def test_age_on(birth: date, today: date, expected: int) -> None:
 
 
 def test_family_member_is_updated_by_name_keeping_other_fields() -> None:
-    profile = store.save_family_member(store.Profile(), "Giulia", relation="moglie", today=TODAY)
+    profile = store.save_family_member(store.Profile(), "Giulia", relation="moglie")
 
-    profile = store.save_family_member(profile, " giulia ", birth_date=date(1981, 7, 4), today=TODAY)
+    profile = store.save_family_member(profile, " giulia ", birth_date=date(1981, 7, 4))
 
     assert len(profile.family) == 1
     assert profile.family[0].relation == "moglie"
@@ -73,9 +71,9 @@ def test_birth_date_in_the_future_is_rejected() -> None:
 
 
 def test_vehicles_are_matched_by_plate_then_name() -> None:
-    profile = store.save_vehicle(store.Profile(), "Clio", fuel="benzina", today=TODAY)
-    profile = store.save_vehicle(profile, "Clio", plate=" ab123cd ", today=TODAY)
-    profile = store.save_vehicle(profile, "Clio", plate="ZZ999ZZ", fuel="gasolio", today=TODAY)
+    profile = store.save_vehicle(store.Profile(), "Clio", fuel="benzina")
+    profile = store.save_vehicle(profile, "Clio", plate=" ab123cd ")
+    profile = store.save_vehicle(profile, "Clio", plate="ZZ999ZZ", fuel="gasolio")
 
     assert [(v.name, v.plate, v.fuel) for v in profile.vehicles] == [
         ("Clio", "AB123CD", "benzina"),
@@ -89,8 +87,8 @@ def test_invalid_fuel_is_rejected() -> None:
 
 
 def test_places_and_preferences_use_normalized_keys() -> None:
-    profile = store.save_place(store.Profile(), "Work", "Via Roma 1", company="ACME", today=TODAY)
-    profile = store.save_place(profile, "work", "Via Milano 2", today=TODAY)
+    profile = store.save_place(store.Profile(), "Work", "Via Roma 1", company="ACME")
+    profile = store.save_place(profile, "work", "Via Milano 2")
     profile = store.set_preference(profile, "Preferred Fuel Brand", "Q8")
 
     assert profile.places["work"].address == "Via Milano 2"
@@ -99,8 +97,8 @@ def test_places_and_preferences_use_normalized_keys() -> None:
 
 
 def test_notes_ignore_duplicates() -> None:
-    profile = store.add_note(store.Profile(), "Preferisco il self service", today=TODAY)
-    profile = store.add_note(profile, "preferisco il  self service", today=TODAY)
+    profile = store.add_note(store.Profile(), "Preferisco il self service")
+    profile = store.add_note(profile, "preferisco il  self service")
 
     assert len(profile.notes) == 1
 
@@ -109,8 +107,8 @@ def test_missing_essentials_follow_answers_and_skips() -> None:
     profile = store.Profile()
     assert [item["key"] for item in store.missing_essentials(profile)] == list(store.ESSENTIALS)
 
-    profile = store.update_me(profile, first_name="Mario", birth_date=date(1980, 3, 5), today=TODAY)
-    profile = store.save_place(profile, "home", "Via Roma 1", today=TODAY)
+    profile = store.update_me(profile, first_name="Mario", birth_date=date(1980, 3, 5))
+    profile = store.save_place(profile, "home", "Via Roma 1")
     profile = store.set_preference(profile, "commute", "mezzi pubblici")
     profile = store.skip_essential(profile, "family")
 
@@ -130,9 +128,9 @@ def test_skip_essential_rejects_unknown_keys() -> None:
 
 
 def test_describe_profile_reports_ages_and_upcoming_birthdays() -> None:
-    profile = store.update_me(store.Profile(), first_name="Mario", birth_date=date(1980, 3, 5), today=TODAY)
-    profile = store.save_family_member(profile, "Luca", relation="figlio", birth_date=date(2013, 12, 1), today=TODAY)
-    profile = store.save_family_member(profile, "Anna", relation="figlia", birth_date=date(2012, 4, 20), today=TODAY)
+    profile = store.update_me(store.Profile(), first_name="Mario", birth_date=date(1980, 3, 5))
+    profile = store.save_family_member(profile, "Luca", relation="figlio", birth_date=date(2013, 12, 1))
+    profile = store.save_family_member(profile, "Anna", relation="figlia", birth_date=date(2012, 4, 20))
 
     description = store.describe_profile(profile, today=TODAY)
 
@@ -143,7 +141,7 @@ def test_describe_profile_reports_ages_and_upcoming_birthdays() -> None:
 
 
 def test_upcoming_birthday_handles_29_february() -> None:
-    profile = store.save_family_member(store.Profile(), "Leap", birth_date=date(2000, 2, 29), today=TODAY)
+    profile = store.save_family_member(store.Profile(), "Leap", birth_date=date(2000, 2, 29))
 
     description = store.describe_profile(profile, today=date(2027, 2, 20))
 
@@ -161,11 +159,11 @@ def test_upcoming_birthday_handles_29_february() -> None:
     ],
 )
 def test_forget_removes_one_item(section: store.Section, key: str) -> None:
-    profile = store.save_family_member(store.Profile(), "Luca", today=TODAY)
-    profile = store.save_vehicle(profile, "Peugeot 2008", today=TODAY)
-    profile = store.save_place(profile, "home", "Via Roma 1", today=TODAY)
+    profile = store.save_family_member(store.Profile(), "Luca")
+    profile = store.save_vehicle(profile, "Peugeot 2008")
+    profile = store.save_place(profile, "home", "Via Roma 1")
     profile = store.set_preference(profile, "commute", "auto")
-    profile = store.add_note(profile, "Preferisco il self service", today=TODAY)
+    profile = store.add_note(profile, "Preferisco il self service")
 
     updated = store.forget(profile, section, key)
 
@@ -179,9 +177,9 @@ def test_forget_unknown_item_raises() -> None:
 
 def test_deceased_relatives_have_no_age_but_keep_anniversaries() -> None:
     profile = store.save_family_member(
-        store.Profile(), "Nonno", relation="padre", birth_date=date(1931, 12, 1), deceased=True, today=TODAY
+        store.Profile(), "Nonno", relation="padre", birth_date=date(1931, 12, 1), deceased=True
     )
-    profile = store.save_family_member(profile, "Zia", relation="zia", birth_date=date(1950, 1, 1), today=TODAY)
+    profile = store.save_family_member(profile, "Zia", relation="zia", birth_date=date(1950, 1, 1))
 
     description = store.describe_profile(profile, today=TODAY)
 
@@ -192,9 +190,9 @@ def test_deceased_relatives_have_no_age_but_keep_anniversaries() -> None:
 
 
 def test_deceased_flag_is_kept_on_later_updates() -> None:
-    profile = store.save_family_member(store.Profile(), "Nonna", deceased=True, today=TODAY)
+    profile = store.save_family_member(store.Profile(), "Nonna", deceased=True)
 
-    profile = store.save_family_member(profile, "Nonna", relation="suocera", today=TODAY)
+    profile = store.save_family_member(profile, "Nonna", relation="suocera")
 
     assert profile.family[0].deceased is True
     assert profile.family[0].relation == "suocera"
@@ -202,11 +200,9 @@ def test_deceased_flag_is_kept_on_later_updates() -> None:
 
 def test_namesakes_with_different_birth_dates_are_different_people() -> None:
     profile = store.save_family_member(
-        store.Profile(), "Luca", "Bianchi", relation="suocero", birth_date=date(1950, 6, 1), today=TODAY
+        store.Profile(), "Luca", "Bianchi", relation="suocero", birth_date=date(1950, 6, 1)
     )
-    profile = store.save_family_member(
-        profile, "Luca", "Bianchi", relation="nipote", birth_date=date(2010, 9, 15), today=TODAY
-    )
+    profile = store.save_family_member(profile, "Luca", "Bianchi", relation="nipote", birth_date=date(2010, 9, 15))
     profile = store.save_family_member(profile, "luca", "bianchi", birth_date=date(1950, 6, 1), deceased=True)
 
     assert [(p.relation, p.birth_date, p.deceased) for p in profile.family] == [
@@ -224,9 +220,9 @@ def test_ambiguous_name_without_birth_date_is_rejected() -> None:
 
 
 def test_birth_date_fills_the_single_undated_namesake() -> None:
-    profile = store.save_family_member(store.Profile(), "Paola", "Verdi", relation="suocera", today=TODAY)
+    profile = store.save_family_member(store.Profile(), "Paola", "Verdi", relation="suocera")
 
-    profile = store.save_family_member(profile, "Paola", "Verdi", birth_date=date(1945, 5, 1), today=TODAY)
+    profile = store.save_family_member(profile, "Paola", "Verdi", birth_date=date(1945, 5, 1))
 
     assert len(profile.family) == 1
     assert profile.family[0].birth_date == date(1945, 5, 1)
@@ -245,7 +241,7 @@ def test_forget_namesake_requires_birth_date() -> None:
 
 
 def test_forget_by_nickname() -> None:
-    profile = store.save_family_member(store.Profile(), "Elisabetta", nickname="Betty", today=TODAY)
+    profile = store.save_family_member(store.Profile(), "Elisabetta", nickname="Betty")
 
     assert store.forget(profile, "family", "betty").family == []
 
@@ -290,9 +286,7 @@ def test_save_family_member_by_id_can_change_identity_fields() -> None:
     profile = store.save_family_member(store.Profile(), "Marco", relation="figlio", birth_date=date(2012, 4, 20))
     person_id = profile.family[0].id
 
-    profile = store.save_family_member(
-        profile, last_name="Rossi", person_id=person_id, birth_date=date(2012, 4, 21), today=TODAY
-    )
+    profile = store.save_family_member(profile, last_name="Rossi", person_id=person_id, birth_date=date(2012, 4, 21))
 
     person = profile.family[0]
     assert len(profile.family) == 1
@@ -317,10 +311,10 @@ def test_save_family_member_by_id_rejects_empty_first_name() -> None:
 
 
 def test_save_vehicle_by_id_can_rename() -> None:
-    profile = store.save_vehicle(store.Profile(), "Peugot 2008", fuel="benzina", today=TODAY)
+    profile = store.save_vehicle(store.Profile(), "Peugot 2008", fuel="benzina")
     vehicle_id = profile.vehicles[0].id
 
-    profile = store.save_vehicle(profile, "Peugeot 2008", vehicle_id=vehicle_id, today=TODAY)
+    profile = store.save_vehicle(profile, "Peugeot 2008", vehicle_id=vehicle_id)
 
     assert [(v.id, v.name, v.fuel) for v in profile.vehicles] == [(vehicle_id, "Peugeot 2008", "benzina")]
 
@@ -335,10 +329,83 @@ def test_forget_by_id() -> None:
 
 
 def test_describe_profile_exposes_ids() -> None:
-    profile = store.save_family_member(store.Profile(), "Luca", birth_date=date(2013, 12, 1), today=TODAY)
+    profile = store.save_family_member(store.Profile(), "Luca", birth_date=date(2013, 12, 1))
 
     description = store.describe_profile(profile, today=TODAY)
 
     assert description["profile"]["family"][0]["id"] == profile.family[0].id
     assert description["ages"][0]["id"] == profile.family[0].id
     assert description["upcoming_birthdays"][0]["id"] == profile.family[0].id
+
+
+def test_place_coordinates_can_be_added_later_and_are_kept() -> None:
+    profile = store.save_place(store.Profile(), "home", "Via Roma 1, 00100 Roma")
+
+    profile = store.save_place(profile, "home", latitude=41.9, longitude=12.5)
+    profile = store.save_place(profile, "home", "via roma 1,  00100 roma")
+
+    home = profile.places["home"]
+    assert (home.address, home.latitude, home.longitude) == ("via roma 1,  00100 roma", 41.9, 12.5)
+
+
+def test_changing_address_drops_old_coordinates() -> None:
+    profile = store.save_place(store.Profile(), "home", "Via Roma 1", latitude=41.9, longitude=12.5)
+
+    profile = store.save_place(profile, "home", "Via Milano 10")
+
+    assert (profile.places["home"].latitude, profile.places["home"].longitude) == (None, None)
+
+
+@pytest.mark.parametrize(
+    ("latitude", "longitude", "message"),
+    [(41.9, None, "together"), (95.0, 12.5, "out of range")],
+)
+def test_place_coordinates_are_validated(latitude: float, longitude: float | None, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        store.save_place(store.Profile(), "home", "Via Roma 1", latitude=latitude, longitude=longitude)
+
+
+def test_new_place_requires_address() -> None:
+    with pytest.raises(ValueError, match="address is required"):
+        store.save_place(store.Profile(), "gym", latitude=41.9, longitude=12.5)
+
+
+def test_legacy_updated_dates_are_ignored_and_not_saved_again(profile_path: Path) -> None:
+    profile_path.parent.mkdir(parents=True)
+    profile_path.write_text(
+        "places:\n  home:\n    updated: '2026-11-12'\n    address: Via Roma 1\n"
+        "family:\n- updated: '2026-11-13'\n  first_name: Anna\n  deceased: true\n",
+        encoding="utf-8",
+    )
+
+    store.save_profile(store.load_profile())
+
+    assert "updated" not in profile_path.read_text(encoding="utf-8")
+    assert store.load_profile().family[0].first_name == "Anna"
+
+
+def test_vehicle_deadlines_are_merged_normalized_and_removable() -> None:
+    profile = store.save_vehicle(store.Profile(), "Peugeot 2008", deadlines={"Bollo": "09-30"})
+    vehicle_id = profile.vehicles[0].id
+
+    profile = store.save_vehicle(profile, vehicle_id=vehicle_id, deadlines={"assicurazione": "12-31"})
+    assert profile.vehicles[0].deadlines == {"bollo": "09-30", "assicurazione": "12-31"}
+
+    profile = store.save_vehicle(profile, vehicle_id=vehicle_id, deadlines={"bollo": None})
+    assert profile.vehicles[0].deadlines == {"assicurazione": "12-31"}
+
+
+@pytest.mark.parametrize("day", ["31-12", "13-01", "2026-12-31", "02-30"])
+def test_invalid_vehicle_deadlines_are_rejected(day: str) -> None:
+    with pytest.raises(ValidationError, match="MM-DD"):
+        store.save_vehicle(store.Profile(), "Auto", deadlines={"bollo": day})
+
+
+def test_describe_profile_lists_upcoming_vehicle_deadlines() -> None:
+    profile = store.save_vehicle(store.Profile(), "Clio", deadlines={"assicurazione": "12-31", "bollo": "09-30"})
+
+    description = store.describe_profile(profile, today=TODAY)
+
+    assert [(d["vehicle"], d["kind"], d["date"]) for d in description["upcoming_deadlines"]] == []
+    december = store.describe_profile(profile, today=date(2026, 12, 15))["upcoming_deadlines"]
+    assert [(d["kind"], d["date"], d["in_days"]) for d in december] == [("assicurazione", "2026-12-31", 16)]

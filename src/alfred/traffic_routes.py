@@ -4,6 +4,7 @@ Functions return structured data; how to phrase it (when to leave, which delays 
 the caller. The API key comes from the plugin option or ``alfred.env`` (``ALFRED_TOMTOM_API_KEY``).
 """
 
+import re
 from datetime import datetime
 from typing import Any
 from urllib.parse import quote
@@ -13,7 +14,28 @@ import requests
 from alfred.paths import secret
 
 API_KEY_NAME = "ALFRED_TOMTOM_API_KEY"  # pragma: allowlist secret
-GEOCODE_URL = "https://api.tomtom.com/search/2/geocode"
+# The general search endpoint: the dedicated geocode endpoints are not included in TomTom's free plan.
+SEARCH_URL = "https://api.tomtom.com/search/2/search"
+OSM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
+OSM_USER_AGENT = "Alfred/0.1 (https://github.com/sasadangelo/alfred)"
+STREET_WORDS = (
+    "via",
+    "viale",
+    "piazza",
+    "piazzale",
+    "corso",
+    "largo",
+    "vicolo",
+    "strada",
+    "lungomare",
+    "lungotevere",
+    "contrada",
+    "localita",
+    "località",
+    "street",
+    "road",
+    "avenue",
+)
 ROUTE_URL = "https://api.tomtom.com/routing/1/calculateRoute"
 REQUEST_TIMEOUT_SECONDS = 10
 
@@ -63,30 +85,98 @@ def _get(session: Any, url: str, params: dict[str, Any], what: str) -> dict[str,
     return data
 
 
-def find_address(
-    query: str, *, count: int = 5, country: str | None = None, session: Any | None = None
-) -> list[dict[str, Any]]:
-    """Turn an address or place name into coordinates, best matches first."""
-    if not query.strip():
-        raise ValueError("query must not be empty")
-    if not 1 <= count <= 20:
-        raise ValueError("count must be between 1 and 20")
-    params: dict[str, Any] = {"limit": count, "language": "it-IT"}
+def _normalize(text: str) -> str:
+    return " ".join(re.sub(r"[^\w\s]", " ", text.casefold()).split())
+
+
+def _street_of(query: str) -> str:
+    """Return the street part of an address ("Via Roma 1, Bologna" -> "via roma"), or "" if none."""
+    first = _normalize(query.split(",")[0])
+    words = first.split()
+    if not words or words[0] not in STREET_WORDS:
+        return ""
+    while words and any(char.isdigit() for char in words[-1]):
+        words.pop()
+    return " ".join(words)
+
+
+def _tomtom_candidates(query: str, count: int, country: str | None, session: Any) -> list[dict[str, Any]]:
+    params: dict[str, Any] = {"limit": count, "language": "it-IT", "idxSet": "PAD,Addr,Str,Geo"}
     if country:
         params["countrySet"] = country.upper()
-    data = _get(session, f"{GEOCODE_URL}/{quote(query.strip(), safe='')}.json", params, "find the address")
+    data = _get(session, f"{SEARCH_URL}/{quote(query.strip(), safe='')}.json", params, "find the address")
     return [
         {
             "address": str(item.get("address", {}).get("freeformAddress", "")),
+            "street": str(item.get("address", {}).get("streetName", "")),
             "municipality": str(item.get("address", {}).get("municipality", "")),
             "region": str(item.get("address", {}).get("countrySubdivision", "")),
             "country": str(item.get("address", {}).get("countryCode", "")),
             "latitude": float(item["position"]["lat"]),
             "longitude": float(item["position"]["lon"]),
             "match": str(item.get("type", "")),
+            "source": "tomtom",
         }
         for item in data.get("results", [])
     ]
+
+
+def _osm_candidates(query: str, count: int, country: str | None, session: Any) -> list[dict[str, Any]]:
+    params: dict[str, Any] = {"q": query.strip(), "format": "jsonv2", "addressdetails": 1, "limit": count}
+    if country:
+        params["countrycodes"] = country.lower()
+    try:
+        response = (session or requests).get(
+            OSM_SEARCH_URL, params=params, headers={"User-Agent": OSM_USER_AGENT}, timeout=REQUEST_TIMEOUT_SECONDS
+        )
+        response.raise_for_status()
+        results = response.json()
+    except (requests.RequestException, ValueError):
+        return []
+    candidates = []
+    for item in results:
+        address = item.get("address", {})
+        candidates.append(
+            {
+                "address": str(item.get("display_name", "")),
+                "street": str(address.get("road", "")),
+                "municipality": str(address.get("city") or address.get("town") or address.get("village") or ""),
+                "region": str(address.get("state", "")),
+                "country": str(address.get("country_code", "")).upper(),
+                "latitude": float(item["lat"]),
+                "longitude": float(item["lon"]),
+                "match": str(item.get("addresstype") or item.get("type", "")),
+                "source": "openstreetmap",
+            }
+        )
+    return candidates
+
+
+def find_address(
+    query: str, *, count: int = 5, country: str | None = None, session: Any | None = None
+) -> list[dict[str, Any]]:
+    """Turn an address or place name into coordinates, best matches first.
+
+    Uses TomTom search. When the query names a street that TomTom's best result does not match
+    (TomTom does not know every street), OpenStreetMap results matching the street come first.
+    Each candidate says its ``source``; ``street_matches`` tells whether its street is the one asked.
+    """
+    if not query.strip():
+        raise ValueError("query must not be empty")
+    if not 1 <= count <= 20:
+        raise ValueError("count must be between 1 and 20")
+    wanted = _street_of(query)
+    candidates = _tomtom_candidates(query, count, country, session)
+
+    def matches(candidate: dict[str, Any]) -> bool:
+        return bool(wanted) and _normalize(candidate["street"]) == wanted
+
+    if wanted and not any(matches(candidate) for candidate in candidates[:1]):
+        osm = [candidate for candidate in _osm_candidates(query, count, country, session) if matches(candidate)]
+        candidates = osm + candidates
+    for candidate in candidates:
+        candidate["street_matches"] = matches(candidate) if wanted else None
+    return candidates[:count]
 
 
 def _minutes(seconds: Any) -> int:

@@ -23,7 +23,7 @@ def _api_key(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(traffic_routes.API_KEY_NAME, "test-key")
 
 
-def _response(payload: dict[str, Any], status: int = 200) -> Mock:
+def _response(payload: Any, status: int = 200) -> Mock:
     response = Mock()
     response.status_code = status
     response.json.return_value = payload
@@ -59,23 +59,24 @@ def _route_payload() -> dict[str, Any]:
     }
 
 
-def test_find_address_returns_candidates() -> None:
+def _tomtom_result(street: str, freeform: str, lat: float, lon: float) -> dict[str, Any]:
+    return {
+        "type": "Point Address",
+        "address": {
+            "freeformAddress": freeform,
+            "streetName": street,
+            "municipality": "Bologna",
+            "countrySubdivision": "Emilia-Romagna",
+            "countryCode": "IT",
+        },
+        "position": {"lat": lat, "lon": lon},
+    }
+
+
+def test_find_address_uses_tomtom_search_when_the_street_matches() -> None:
     session = Mock()
     session.get.return_value = _response(
-        {
-            "results": [
-                {
-                    "type": "Point Address",
-                    "address": {
-                        "freeformAddress": "Via Roma 1, 40121 Bologna",
-                        "municipality": "Bologna",
-                        "countrySubdivision": "Emilia-Romagna",
-                        "countryCode": "IT",
-                    },
-                    "position": {"lat": 44.49, "lon": 11.34},
-                }
-            ]
-        }
+        {"results": [_tomtom_result("Via Roma", "Via Roma 1, 40121 Bologna", 44.49, 11.34)]}
     )
 
     places = traffic_routes.find_address(" Via Roma 1, Bologna ", country="it", session=session)
@@ -83,19 +84,81 @@ def test_find_address_returns_candidates() -> None:
     assert places == [
         {
             "address": "Via Roma 1, 40121 Bologna",
+            "street": "Via Roma",
             "municipality": "Bologna",
             "region": "Emilia-Romagna",
             "country": "IT",
             "latitude": 44.49,
             "longitude": 11.34,
             "match": "Point Address",
+            "source": "tomtom",
+            "street_matches": True,
         }
     ]
+    session.get.assert_called_once()
     url = session.get.call_args.args[0]
     params = session.get.call_args.kwargs["params"]
-    assert url.endswith("/geocode/Via%20Roma%201%2C%20Bologna.json")
+    assert url.endswith("/search/2/search/Via%20Roma%201%2C%20Bologna.json")
     assert params["countrySet"] == "IT"
     assert params["key"] == "test-key"
+
+
+def test_find_address_falls_back_to_openstreetmap_for_unknown_streets() -> None:
+    session = Mock()
+    session.get.side_effect = [
+        _response({"results": [_tomtom_result("Via Felice Rossi", "Via Felice Rossi, Bologna", 44.5, 11.3)]}),
+        _response(
+            [
+                {
+                    "display_name": "Via Mario Rossi, Bologna, Italia",
+                    "lat": "44.49",
+                    "lon": "11.33",
+                    "addresstype": "road",
+                    "address": {
+                        "road": "Via Mario Rossi",
+                        "city": "Bologna",
+                        "state": "Emilia-Romagna",
+                        "country_code": "it",
+                    },
+                }
+            ]
+        ),
+    ]
+
+    places = traffic_routes.find_address("Via Mario Rossi 19, Bologna", country="IT", session=session)
+
+    assert [(p["source"], p["street"], p["street_matches"]) for p in places] == [
+        ("openstreetmap", "Via Mario Rossi", True),
+        ("tomtom", "Via Felice Rossi", False),
+    ]
+    osm_call = session.get.call_args_list[1]
+    assert osm_call.args[0] == traffic_routes.OSM_SEARCH_URL
+    assert osm_call.kwargs["params"]["countrycodes"] == "it"
+    assert "key" not in osm_call.kwargs["params"]
+    assert "Alfred" in osm_call.kwargs["headers"]["User-Agent"]
+
+
+def test_find_address_keeps_tomtom_results_when_openstreetmap_fails() -> None:
+    session = Mock()
+    session.get.side_effect = [
+        _response({"results": [_tomtom_result("Via Felice Rossi", "Via Felice Rossi, Bologna", 44.5, 11.3)]}),
+        requests.ConnectionError("down"),
+    ]
+
+    places = traffic_routes.find_address("Via Mario Rossi 19, Bologna", session=session)
+
+    assert [p["source"] for p in places] == ["tomtom"]
+    assert places[0]["street_matches"] is False
+
+
+def test_find_address_for_a_town_skips_the_street_check() -> None:
+    session = Mock()
+    session.get.return_value = _response({"results": [_tomtom_result("", "Bologna", 44.49, 11.34)]})
+
+    places = traffic_routes.find_address("Bologna", session=session)
+
+    assert places[0]["street_matches"] is None
+    session.get.assert_called_once()
 
 
 def test_find_address_rejects_empty_query() -> None:

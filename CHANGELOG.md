@@ -10,6 +10,13 @@ All notable changes to this plugin are documented here. The format follows
 - Gmail tools in the `google-workspace` server and the `gmail` skill: search, read, create and apply labels, archive, mark read/unread, trash and restore, with the `gmail.modify` permission (no sending, no permanent deletion). Requires enabling the Gmail API and authorizing again.
 - `traffic` MCP server and skill: car routes with live and predicted traffic from TomTom, departure times for appointments and the commute, and a `TomTom API key` plugin option.
 - Secrets such as the TomTom key can also be read from `alfred.env` in the data directory.
+- Vehicles can store yearly deadlines (e.g. bollo, assicurazione) as MM-DD; upcoming ones appear in the profile summary.
+- Saved places can store verified coordinates, which traffic and weather use instead of looking up the address.
+- Address lookup uses TomTom search, with OpenStreetMap as a fallback for streets TomTom does not know.
+
+### Changed
+
+- Profile entries no longer record their last update date; profiles saved with it still load.
 
 ### Removed
 
