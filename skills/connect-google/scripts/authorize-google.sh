@@ -6,7 +6,7 @@
 # ALFRED_GOOGLE_OAUTH_CLIENT_FILE, or from google-oauth-client.json in the data directory.
 set -euo pipefail
 
-# shellcheck source=scripts/lib.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=../../../scripts/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../../../scripts/lib.sh"
 
 alfred_python alfred.google_auth

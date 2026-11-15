@@ -422,8 +422,8 @@ def _http_error_response(status: int, message: str = "") -> Mock:
     [
         (404, "Not Found", "not found"),
         (410, "Resource has been deleted", "already been deleted"),
-        (403, "Request had insufficient authentication scopes.", "authorize-google.sh"),
-        (401, "Invalid Credentials", "authorize-google.sh"),
+        (403, "Request had insufficient authentication scopes.", "connect-google"),
+        (401, "Invalid Credentials", "connect-google"),
         (400, "Invalid recurrence rule", "Invalid recurrence rule"),
         (503, "Backend Error", "temporarily unavailable"),
     ],

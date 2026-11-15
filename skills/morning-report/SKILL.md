@@ -12,7 +12,7 @@ Send Alfred's morning report through WhatsApp with the plugin's Python applicati
 1. Run the report:
 
    ```bash
-   CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-morning-report.sh"
+   CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" bash "${CLAUDE_PLUGIN_ROOT}/skills/morning-report/scripts/run-morning-report.sh"
    ```
 
 2. Report whether WhatsApp authentication and delivery succeeded.

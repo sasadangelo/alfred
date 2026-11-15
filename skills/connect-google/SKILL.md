@@ -21,7 +21,7 @@ Skip this step if the user already has a client file. Otherwise, explain these s
 The authorization opens Google's consent page in the browser and waits up to 5 minutes for the user, which is longer than a tool call may block. Ask the user to run it in their own terminal, and give them this exact command:
 
 ```bash
-CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" ALFRED_GOOGLE_OAUTH_CLIENT_FILE="${user_config.google_oauth_client}" bash "${CLAUDE_PLUGIN_ROOT}/scripts/authorize-google.sh"
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" ALFRED_GOOGLE_OAUTH_CLIENT_FILE="${user_config.google_oauth_client}" bash "${CLAUDE_PLUGIN_ROOT}/skills/connect-google/scripts/authorize-google.sh"
 ```
 
 When it prints "Saved Google token", the token is in `${CLAUDE_PLUGIN_DATA}/google-token.json` with owner-only permissions.

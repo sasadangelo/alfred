@@ -52,7 +52,7 @@ def _error_response(status: int, message: str) -> Mock:
     [
         (404, "Not Found", "the task or task list was not found"),
         (410, "Deleted", "the task or task list has already been deleted"),
-        (403, "Request had insufficient authentication scopes.", "authorize-google.sh"),
+        (403, "Request had insufficient authentication scopes.", "connect-google"),
         (403, "Google Tasks API has not been used in project 123 before or it is disabled.", "not enabled"),
     ],
 )

@@ -5,8 +5,8 @@
 # keeps the WhatsApp session database there too.
 set -euo pipefail
 
-# shellcheck source=scripts/lib.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=../../../scripts/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../../../scripts/lib.sh"
 
 ENV_FILE="${ALFRED_ENV_FILE:-$ALFRED_DATA/alfred.env}"
 CONFIG_FILE="${ALFRED_CONFIG_FILE:-$ALFRED_DATA/config.yaml}"

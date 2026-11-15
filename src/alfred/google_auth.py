@@ -19,7 +19,7 @@ CLIENT_SECRET_FILE_ENV = "ALFRED_GOOGLE_OAUTH_CLIENT_FILE"  # pragma: allowlist 
 TOKEN_FILE_ENV = "ALFRED_GOOGLE_TOKEN_FILE"
 CLIENT_SECRET_FILENAME = "google-oauth-client.json"  # pragma: allowlist secret
 TOKEN_FILENAME = "google-token.json"
-AUTHORIZE_HINT = "Authorize Alfred again with the plugin's scripts/authorize-google.sh."
+AUTHORIZE_HINT = "Authorize Alfred again with the connect-google skill (/alfred:connect-google)."
 REQUEST_TIMEOUT_SECONDS = 15
 AUTHORIZATION_TIMEOUT_SECONDS = 300
 
