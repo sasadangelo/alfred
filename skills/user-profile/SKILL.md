@@ -14,7 +14,7 @@ Alfred keeps a local profile of the user through the `user-profile` MCP tools. U
 
 ## Learn during conversation
 
-1. When the user mentions a new or changed personal fact, propose saving it in one short line, for example: "Vuoi che mi ricordi che Giulia è nata a Torino il 4 luglio 1975?"
+1. When the user mentions a new or changed personal fact, propose saving it in one short line, for example: "Vuoi che mi ricordi che Giulia è nata a Torino il 12 maggio 1980?"
 2. Save only after the user agrees. If the user explicitly asks to remember something, or dictates their details for this purpose, that counts as agreement.
 3. Use the dedicated tool for each fact: `save_my_details`, `save_family_member`, `save_place` (labels `home`, `work`, `school`, or a short name), `save_vehicle`, `set_user_preference` (for example `commute`), and `add_profile_note` only for facts without a field.
 4. A person is identified by first name, last name and birth date. Pass `first_name` and `last_name` separately (Italian names are often given surname first, as in "Rossi Anna": store first name Anna, last name Rossi), and pass `birth_date` whenever it is known so namesakes stay separate. Put short names such as "Betty" or "Beppe" in `nickname`. If a tool reports that a name is ambiguous, ask the user for the birth date. To correct an existing person or vehicle (a wrong surname, birth date, or model), pass its `id` from `get_user_profile` as `person_id` or `vehicle_id`: every field can then change. Without an id, a changed name or birth date would add a new person.

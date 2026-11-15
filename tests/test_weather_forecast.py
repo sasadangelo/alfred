@@ -62,8 +62,8 @@ def test_find_place_returns_candidates_with_region() -> None:
             "results": [
                 {
                     "name": "Bologna",
-                    "admin2": "Provincia di Roma",
-                    "admin1": "Lazio",
+                    "admin2": "Provincia di Bologna",
+                    "admin1": "Emilia-Romagna",
                     "country": "Italia",
                     "latitude": 41.77,
                     "longitude": 12.24,
@@ -79,8 +79,8 @@ def test_find_place_returns_candidates_with_region() -> None:
     assert places == [
         {
             "name": "Bologna",
-            "province": "Provincia di Roma",
-            "region": "Lazio",
+            "province": "Provincia di Bologna",
+            "region": "Emilia-Romagna",
             "country": "Italia",
             "latitude": 41.77,
             "longitude": 12.24,

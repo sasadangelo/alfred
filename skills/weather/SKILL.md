@@ -10,7 +10,7 @@ Use the `weather` MCP tools (Open-Meteo, free) for forecasts, and `get_user_prof
 ## Where
 
 1. Default place: the user's home (`places.home`). On office days in `preferences.work_schedule`, also consider work (`places.work`) for the commute.
-2. For home, work, or any address, search the town in the address with `find_place` (for example "Bologna" from "Via Roma 1, 00100 Roma"); it finds towns, not streets. When the user names a place, call `find_place` with it.
+2. For home, work, or any address, search the town in the address with `find_place` (for example "Bologna" from "Via Roma 1, 40121 Bologna"); it finds towns, not streets. When the user names a place, call `find_place` with it.
 3. If several candidates match (same name in different regions), pick the one that fits the context (the user's region, an appointment's location); if still unclear, ask. Never send the user's name or full address to the weather service: only the town.
 
 ## When

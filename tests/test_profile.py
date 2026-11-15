@@ -48,9 +48,9 @@ def test_profile_file_defaults_to_config_dir(tmp_path: Path, monkeypatch: pytest
 @pytest.mark.parametrize(
     ("birth", "today", "expected"),
     [
-        (date(1980, 3, 5), date(2026, 11, 12), 52),
-        (date(1980, 3, 5), date(2027, 3, 4), 52),
-        (date(1980, 3, 5), date(2027, 3, 5), 53),
+        (date(1980, 3, 5), date(2026, 11, 12), 46),
+        (date(1980, 3, 5), date(2027, 3, 4), 46),
+        (date(1980, 3, 5), date(2027, 3, 5), 47),
     ],
 )
 def test_age_on(birth: date, today: date, expected: int) -> None:
@@ -136,7 +136,7 @@ def test_describe_profile_reports_ages_and_upcoming_birthdays() -> None:
 
     description = store.describe_profile(profile, today=TODAY)
 
-    assert [(item["name"], item["age"]) for item in description["ages"]] == [("Mario", 52), ("Luca", 12), ("Anna", 18)]
+    assert [(item["name"], item["age"]) for item in description["ages"]] == [("Mario", 46), ("Luca", 12), ("Anna", 14)]
     assert [{k: v for k, v in item.items() if k != "id"} for item in description["upcoming_birthdays"]] == [
         {"name": "Luca", "birth_date": "2013-12-01", "date": "2026-12-01", "in_days": 19, "turns": 13}
     ]
@@ -202,31 +202,31 @@ def test_deceased_flag_is_kept_on_later_updates() -> None:
 
 def test_namesakes_with_different_birth_dates_are_different_people() -> None:
     profile = store.save_family_member(
-        store.Profile(), "Ferdinando", "Bianchi", relation="suocero", birth_date=date(1950, 6, 1), today=TODAY
+        store.Profile(), "Luca", "Bianchi", relation="suocero", birth_date=date(1950, 6, 1), today=TODAY
     )
     profile = store.save_family_member(
-        profile, "Ferdinando", "Bianchi", relation="nipote", birth_date=date(2005, 3, 22), today=TODAY
+        profile, "Luca", "Bianchi", relation="nipote", birth_date=date(2010, 9, 15), today=TODAY
     )
-    profile = store.save_family_member(profile, "ferdinando", "bianchi", birth_date=date(1950, 6, 1), deceased=True)
+    profile = store.save_family_member(profile, "luca", "bianchi", birth_date=date(1950, 6, 1), deceased=True)
 
     assert [(p.relation, p.birth_date, p.deceased) for p in profile.family] == [
         ("suocero", date(1950, 6, 1), True),
-        ("nipote", date(2005, 3, 22), False),
+        ("nipote", date(2010, 9, 15), False),
     ]
 
 
 def test_ambiguous_name_without_birth_date_is_rejected() -> None:
-    profile = store.save_family_member(store.Profile(), "Ferdinando", "Bianchi", birth_date=date(1950, 6, 1))
-    profile = store.save_family_member(profile, "Ferdinando", "Bianchi", birth_date=date(2005, 3, 22))
+    profile = store.save_family_member(store.Profile(), "Luca", "Bianchi", birth_date=date(1950, 6, 1))
+    profile = store.save_family_member(profile, "Luca", "Bianchi", birth_date=date(2010, 9, 15))
 
     with pytest.raises(store.AmbiguousPersonError, match="pass birth_date"):
-        store.save_family_member(profile, "Ferdinando", "Bianchi", relation="nipote")
+        store.save_family_member(profile, "Luca", "Bianchi", relation="nipote")
 
 
 def test_birth_date_fills_the_single_undated_namesake() -> None:
-    profile = store.save_family_member(store.Profile(), "Anna", "Verdi", relation="suocera", today=TODAY)
+    profile = store.save_family_member(store.Profile(), "Paola", "Verdi", relation="suocera", today=TODAY)
 
-    profile = store.save_family_member(profile, "Anna", "Verdi", birth_date=date(1945, 5, 1), today=TODAY)
+    profile = store.save_family_member(profile, "Paola", "Verdi", birth_date=date(1945, 5, 1), today=TODAY)
 
     assert len(profile.family) == 1
     assert profile.family[0].birth_date == date(1945, 5, 1)
@@ -234,12 +234,12 @@ def test_birth_date_fills_the_single_undated_namesake() -> None:
 
 
 def test_forget_namesake_requires_birth_date() -> None:
-    profile = store.save_family_member(store.Profile(), "Ferdinando", "Bianchi", birth_date=date(1950, 6, 1))
-    profile = store.save_family_member(profile, "Ferdinando", "Bianchi", birth_date=date(2005, 3, 22))
+    profile = store.save_family_member(store.Profile(), "Luca", "Bianchi", birth_date=date(1950, 6, 1))
+    profile = store.save_family_member(profile, "Luca", "Bianchi", birth_date=date(2010, 9, 15))
 
     with pytest.raises(store.AmbiguousPersonError):
-        store.forget(profile, "family", "Ferdinando Bianchi")
-    updated = store.forget(profile, "family", "Ferdinando Bianchi", birth_date=date(2005, 3, 22))
+        store.forget(profile, "family", "Luca Bianchi")
+    updated = store.forget(profile, "family", "Luca Bianchi", birth_date=date(2010, 9, 15))
 
     assert [p.birth_date for p in updated.family] == [date(1950, 6, 1)]
 
@@ -253,19 +253,19 @@ def test_forget_by_nickname() -> None:
 def test_legacy_single_name_field_is_split_on_load(profile_path: Path) -> None:
     profile_path.parent.mkdir(parents=True)
     profile_path.write_text(
-        "me:\n  name: Mario Rossi\nfamily:\n- name: Marco D'Angelo\n  relation: padre\n", encoding="utf-8"
+        "me:\n  name: Mario Rossi\nfamily:\n- name: Marco Rossi\n  relation: padre\n", encoding="utf-8"
     )
 
     profile = store.load_profile()
 
     assert profile.me is not None
     assert (profile.me.first_name, profile.me.last_name) == ("Mario", "Rossi")
-    assert (profile.family[0].first_name, profile.family[0].last_name) == ("Marco", "D'Angelo")
+    assert (profile.family[0].first_name, profile.family[0].last_name) == ("Marco", "Rossi")
 
 
 def test_people_and_vehicles_get_stable_unique_ids(profile_path: Path) -> None:
-    profile = store.save_family_member(store.Profile(), "Marco", "D'Angelo", birth_date=date(1945, 2, 3))
-    profile = store.save_family_member(profile, "Marco", "D'Angelo", birth_date=date(2012, 4, 20))
+    profile = store.save_family_member(store.Profile(), "Marco", "Rossi", birth_date=date(1945, 2, 3))
+    profile = store.save_family_member(profile, "Marco", "Rossi", birth_date=date(2012, 4, 20))
     profile = store.save_vehicle(profile, "Peugeot 2008")
     ids = [p.id for p in profile.family] + [v.id for v in profile.vehicles]
 
@@ -298,7 +298,7 @@ def test_save_family_member_by_id_can_change_identity_fields() -> None:
     assert len(profile.family) == 1
     assert (person.id, person.full_name, person.birth_date, person.relation) == (
         person_id,
-        "Marco D'Angelo",
+        "Marco Rossi",
         date(2012, 4, 21),
         "figlio",
     )
@@ -326,8 +326,8 @@ def test_save_vehicle_by_id_can_rename() -> None:
 
 
 def test_forget_by_id() -> None:
-    profile = store.save_family_member(store.Profile(), "Ferdinando", "Bianchi", birth_date=date(1950, 6, 1))
-    profile = store.save_family_member(profile, "Ferdinando", "Bianchi", birth_date=date(2005, 3, 22))
+    profile = store.save_family_member(store.Profile(), "Luca", "Bianchi", birth_date=date(1950, 6, 1))
+    profile = store.save_family_member(profile, "Luca", "Bianchi", birth_date=date(2010, 9, 15))
 
     updated = store.forget(profile, "family", profile.family[1].id)
 
