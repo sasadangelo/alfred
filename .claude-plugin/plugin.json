@@ -2,7 +2,7 @@
   "name": "alfred",
   "displayName": "Alfred",
   "version": "0.1.0",
-  "description": "A personal assistant for Claude Code: Google Calendar and Google Tasks, weather forecasts, traffic and travel times, and a local profile that personalizes every answer.",
+  "description": "A personal assistant for Claude Code: Google Calendar, Google Tasks and Gmail, weather forecasts, traffic and travel times, and a local profile that personalizes every answer.",
   "author": {
     "name": "Salvatore D'Angelo",
     "url": "https://github.com/sasadangelo"
@@ -16,7 +16,8 @@
     "google-tasks",
     "weather",
     "productivity",
-    "traffic"
+    "traffic",
+    "gmail"
   ],
   "icon": "./.claude-plugin/icon.png",
   "documentationUrl": "https://sasadangelo.github.io/alfred/",
@@ -33,7 +34,7 @@
     "google_oauth_client": {
       "type": "file",
       "title": "Google OAuth client file",
-      "description": "JSON of a \"Desktop app\" OAuth client from Google Cloud Console, with the Calendar and Tasks APIs enabled. Leave empty to use google-oauth-client.json in the plugin data directory."
+      "description": "JSON of a \"Desktop app\" OAuth client from Google Cloud Console, with the Calendar, Tasks and Gmail APIs enabled. Leave empty to use google-oauth-client.json in the plugin data directory."
     },
     "tomtom_api_key": {
       "type": "string",

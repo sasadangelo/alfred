@@ -13,7 +13,9 @@ from alfred.paths import data_dir, env_value
 CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events"
 CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
 TASKS_SCOPE = "https://www.googleapis.com/auth/tasks"
-GOOGLE_SCOPES = [CALENDAR_EVENTS_SCOPE, CALENDAR_LIST_SCOPE, TASKS_SCOPE]
+# Read and organize mail (labels, archive, trash); no sending and no permanent deletion.
+GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
+GOOGLE_SCOPES = [CALENDAR_EVENTS_SCOPE, CALENDAR_LIST_SCOPE, TASKS_SCOPE, GMAIL_MODIFY_SCOPE]
 
 CLIENT_SECRET_FILE_ENV = "ALFRED_GOOGLE_OAUTH_CLIENT_FILE"  # pragma: allowlist secret
 TOKEN_FILE_ENV = "ALFRED_GOOGLE_TOKEN_FILE"

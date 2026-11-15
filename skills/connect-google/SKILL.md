@@ -5,13 +5,13 @@ description: Use when the user wants to connect, authorize, or reconnect Alfred 
 
 # Connect Google
 
-Alfred uses one Google authorization for Calendar and Tasks. Guide the user through it; never ask them to paste OAuth files or tokens into chat, and never print them.
+Alfred uses one Google authorization for Calendar, Tasks and Gmail. Guide the user through it; never ask them to paste OAuth files or tokens into chat, and never print them.
 
 ## 1. OAuth client (once)
 
 Skip this step if the user already has a client file. Otherwise, explain these steps in Google Cloud Console (https://console.cloud.google.com):
 
-1. Create a project, then enable the **Google Calendar API** and the **Google Tasks API**.
+1. Create a project, then enable the **Google Calendar API**, the **Google Tasks API** and the **Gmail API**.
 2. Configure the OAuth consent screen with user type **External**, then set its publishing status to **In production**. In "Testing" status Google makes the authorization expire every 7 days. An app in production that Google has not verified shows an "unverified app" warning on the consent page: for personal use the user can continue past it (Advanced → go to the app).
 3. Create an OAuth client ID of type **Desktop app** and download its JSON.
 4. Set the plugin option **Google OAuth client file** to that JSON with `/config`, or save it as `${CLAUDE_PLUGIN_DATA}/google-oauth-client.json`.
