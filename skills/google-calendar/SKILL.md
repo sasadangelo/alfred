@@ -52,16 +52,4 @@ Create, update, or delete events only at the user's explicit request. When an ap
 
 ## Initial setup
 
-If a tool reports that Google is not authorized, that the saved authorization lacks a permission, or that a Google API is not enabled:
-
-1. Ask the user to create a Google Cloud project, enable the Google Calendar API and the Google Tasks API, and create an OAuth client of type **Desktop app**.
-2. Have the user either set the plugin option "Google OAuth client file" to the downloaded JSON, or save it as `google-oauth-client.json` in `${CLAUDE_PLUGIN_DATA}`. Never ask them to paste the file or its contents into chat.
-3. Run the authorization, which opens Google's consent page in the browser and waits for the user to accept:
-
-   ```bash
-   CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" ALFRED_GOOGLE_OAUTH_CLIENT_FILE="${user_config.google_oauth_client}" bash "${CLAUDE_PLUGIN_ROOT}/scripts/authorize-google.sh"
-   ```
-
-4. Ask the user to reconnect the `google-workspace` MCP server (`/mcp`).
-
-The token is saved as `google-token.json` in `${CLAUDE_PLUGIN_DATA}` with owner-only permissions. Do not print, copy, or commit OAuth files.
+If a tool reports that Google is not authorized, that the authorization lacks a permission, or that a Google API is not enabled, follow the `connect-google` skill.

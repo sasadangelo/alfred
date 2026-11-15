@@ -21,6 +21,7 @@ CLIENT_SECRET_FILENAME = "google-oauth-client.json"  # pragma: allowlist secret
 TOKEN_FILENAME = "google-token.json"
 AUTHORIZE_HINT = "Authorize Alfred again with the plugin's scripts/authorize-google.sh."
 REQUEST_TIMEOUT_SECONDS = 15
+AUTHORIZATION_TIMEOUT_SECONDS = 300
 
 
 class GoogleAPIError(RuntimeError):
@@ -51,7 +52,18 @@ def authorize() -> None:
         raise FileNotFoundError(f"Google OAuth client file not found: {secret_file}")
 
     flow = InstalledAppFlow.from_client_secrets_file(str(secret_file), GOOGLE_SCOPES)
-    credentials = flow.run_local_server(port=0, access_type="offline", prompt="consent")
+    credentials = flow.run_local_server(
+        port=0,
+        access_type="offline",
+        prompt="consent",
+        timeout_seconds=AUTHORIZATION_TIMEOUT_SECONDS,
+        authorization_prompt_message="Open this page to authorize Alfred if the browser did not open:\n{url}\n",
+        success_message="Alfred is authorized. You can close this window and go back to Claude Code.",
+    )
+    if credentials is None:
+        raise GoogleAPIError(
+            f"Authorization was not completed within {AUTHORIZATION_TIMEOUT_SECONDS // 60} minutes; run it again."
+        )
     path = token_file()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(credentials.to_json(), encoding="utf-8")

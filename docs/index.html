@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alfred – personal assistant plugin for Claude Code</title>
+  <meta name="description" content="Alfred connects Claude Code to Google Calendar and Google Tasks, gives weather forecasts, and keeps a local profile of you.">
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon.png" alt="Alfred logo">
+    <div>
+      <h1>Alfred</h1>
+      <p>A personal-assistant plugin for Claude Code.</p>
+    </div>
+  </header>
+
+  <p>Alfred connects <a href="https://code.claude.com">Claude Code</a> to your Google Calendar and Google Tasks, gives weather forecasts, and keeps a local profile of you (family, places, habits) so every answer fits your life. Your personal data stays on your own computer.</p>
+
+  <h2>What it does</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Feature</th><th>Ask things like</th></tr>
+    <tr><td>Google Calendar</td><td>"What do I have this week?", "Add the dentist on Friday at 10"</td></tr>
+    <tr><td>Google Tasks</td><td>"What do I have to do this weekend?", "Add 'paint the garage' to the Home list"</td></tr>
+    <tr><td>Weather</td><td>"How should I dress for Sunday's run?", "Do I need an umbrella for the office?"</td></tr>
+    <tr><td>Your profile</td><td>"Remember my wife's birthday", "What do you know about me?"</td></tr>
+  </table>
+  </div>
+
+  <h2>Install</h2>
+  <p>In Claude Code, with <a href="https://docs.astral.sh/uv/">uv</a> installed:</p>
+  <pre>/plugin marketplace add sasadangelo/alfred
+/plugin install alfred@sasadangelo</pre>
+  <p>To use Google Calendar and Google Tasks, create your own OAuth client in Google Cloud Console and authorize Alfred: the plugin guides you step by step.</p>
+
+  <h2>Privacy</h2>
+  <p>Alfred runs entirely on your computer and has no servers of its own. Read the <a href="privacy.html">privacy policy</a> and the <a href="terms.html">terms of use</a>.</p>
+
+  <footer>
+    Alfred is open source under the MIT license. ·
+    <a href="https://github.com/sasadangelo/alfred">Source and support</a>
+  </footer>
+</main>
+</body>
+</html>

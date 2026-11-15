@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alfred – Privacy policy</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon.png" alt="Alfred logo">
+    <div>
+      <h1>Privacy policy</h1>
+      <p>Last updated: November 15, 2026</p>
+    </div>
+  </header>
+
+  <p>Alfred is an open-source plugin for Claude Code that runs on your own computer. This policy explains what data Alfred accesses, where it is kept, and who it is shared with.</p>
+
+  <h2>Summary</h2>
+  <ul>
+    <li>Alfred has no servers of its own. The developer never receives your data.</li>
+    <li>Your profile and Google credentials are stored only on your computer, in files only your user account can read.</li>
+    <li>Alfred contacts other services only to perform what you ask, and sends them only what that request needs.</li>
+    <li>Alfred contains no analytics, tracking, or advertising.</li>
+  </ul>
+
+  <h2>Google user data</h2>
+  <p>With your authorization, Alfred uses these Google permissions:</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Permission</th><th>Used to</th></tr>
+    <tr><td><code>calendar.events</code></td><td>Read your events and create, change, or delete them when you ask.</td></tr>
+    <tr><td><code>calendar.calendarlist.readonly</code></td><td>List your calendars so you can choose one.</td></tr>
+    <tr><td><code>tasks</code></td><td>Read your task lists and tasks and create, change, complete, or delete them when you ask.</td></tr>
+  </table>
+  </div>
+  <p>Google data is requested directly from Google's APIs by the copy of Alfred running on your computer and is shown to you in your Claude Code session. Alfred does not store your events or tasks; it keeps only the OAuth token, on your computer, so it can reach your account again.</p>
+  <p>Alfred's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Google user data is not sold, not used for advertising, not used to train artificial-intelligence models, and not shared with anyone except as described in this policy.</p>
+
+  <h2>Claude</h2>
+  <p>Alfred is used through Claude Code. When Alfred reads your calendar, tasks, profile, or weather to answer you, that information becomes part of your conversation with Claude and is processed by Anthropic according to <a href="https://www.anthropic.com/legal/privacy">Anthropic's privacy policy</a> and the terms of your Claude plan.</p>
+
+  <h2>Data stored on your computer</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Data</th><th>Purpose</th></tr>
+    <tr><td>Your profile: name, family members and their birthdays, places, vehicles, habits, and preferences you chose to share</td><td>Personalize answers and reports</td></tr>
+    <tr><td>Google OAuth client file and token</td><td>Connect to your Google account</td></tr>
+    <tr><td>Optional morning-report settings and WhatsApp session</td><td>Send you the morning report</td></tr>
+  </table>
+  </div>
+  <p>These files live in Claude Code's data directory for the plugin. Alfred saves a profile entry only after you confirm it.</p>
+
+  <h2>Other services</h2>
+  <ul>
+    <li><strong>Open-Meteo</strong> (weather): receives the name or coordinates of a town, never your name or street address.</li>
+    <li><strong>Optional morning report:</strong> TomTom (traffic, using your home and work addresses), Wikipedia (an almanac entry), and WhatsApp (to deliver the message to the number you set).</li>
+  </ul>
+  <p>Each service handles requests under its own privacy policy.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>Ask Alfred "what do you know about me?" to see your profile, and "forget …" to delete any item.</li>
+    <li>Revoke Alfred's access to your Google account at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+    <li>Uninstalling the plugin deletes its data directory, unless you choose to keep it.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>Alfred is not directed to children under 13.</p>
+
+  <h2>Changes</h2>
+  <p>Changes to this policy are published on this page and in the project's history on GitHub, with a new "Last updated" date.</p>
+
+  <h2>Contact</h2>
+  <p>For questions about this policy, open an issue at <a href="https://github.com/sasadangelo/alfred/issues">github.com/sasadangelo/alfred/issues</a>.</p>
+
+  <footer><a href="index.html">Alfred home</a> · <a href="terms.html">Terms of use</a></footer>
+</main>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Alfred
 
-Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com). It connects Claude to your Google Calendar and Google Tasks, gives weather and running forecasts, and keeps a local profile of you (family, places, habits) so every answer fits your life.
+Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com). It connects Claude to your Google Calendar and Google Tasks, gives weather forecasts, and keeps a local profile of you (family, places, habits) so every answer fits your life.
 
 All personal data stays on your machine.
 
@@ -43,9 +43,13 @@ When the plugin is enabled, Claude Code asks for two options, which you can chan
 ## Connect Google Calendar and Google Tasks
 
 1. In [Google Cloud Console](https://console.cloud.google.com), create a project and enable the **Google Calendar API** and the **Google Tasks API**.
-2. Configure the OAuth consent screen (type *External*, add yourself as a test user) and create an OAuth client of type **Desktop app**. Download its JSON.
-3. Set the plugin option **Google OAuth client file** to that JSON, or save it as `google-oauth-client.json` in the plugin data directory (`~/.claude/plugins/data/alfred-sasadangelo/`).
-4. Ask Claude to "connect Google Calendar": it runs the authorization, which opens Google's consent page in your browser.
+2. Configure the OAuth consent screen with user type **External** and set its publishing status to **In production**. In *Testing* status Google makes the authorization [expire after 7 days](https://developers.google.com/identity/protocols/oauth2#expiration). Because the app is not verified by Google, the consent page shows an "unverified app" warning: for your own use, continue past it.
+3. Create an OAuth client ID of type **Desktop app** and download its JSON.
+4. Set the plugin option **Google OAuth client file** to that JSON (`/config`), or save it as `google-oauth-client.json` in the plugin data directory (`~/.claude/plugins/data/alfred-sasadangelo/`).
+5. Ask Claude to "connect Google" (or run `/alfred:connect-google`). It gives you a command to run in your terminal; the command opens Google's consent page and waits up to 5 minutes.
+6. Reconnect the `google-workspace` server with `/mcp`.
+
+Access tokens are refreshed automatically. Authorize again only if you revoke access, change OAuth client, or a plugin update adds a new Google permission.
 
 The token is saved next to the client file with owner-only permissions. Alfred requests these scopes:
 
