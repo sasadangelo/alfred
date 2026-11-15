@@ -2,7 +2,7 @@
   "name": "alfred",
   "displayName": "Alfred",
   "version": "0.1.0",
-  "description": "A personal assistant for Claude Code: Google Calendar and Google Tasks, weather forecasts, and a local profile that personalizes every answer.",
+  "description": "A personal assistant for Claude Code: Google Calendar and Google Tasks, weather forecasts, traffic and travel times, and a local profile that personalizes every answer.",
   "author": {
     "name": "Salvatore D'Angelo",
     "url": "https://github.com/sasadangelo"
@@ -15,7 +15,8 @@
     "google-calendar",
     "google-tasks",
     "weather",
-    "productivity"
+    "productivity",
+    "traffic"
   ],
   "icon": "./.claude-plugin/icon.png",
   "documentationUrl": "https://sasadangelo.github.io/alfred/",
@@ -33,6 +34,12 @@
       "type": "file",
       "title": "Google OAuth client file",
       "description": "JSON of a \"Desktop app\" OAuth client from Google Cloud Console, with the Calendar and Tasks APIs enabled. Leave empty to use google-oauth-client.json in the plugin data directory."
+    },
+    "tomtom_api_key": {
+      "type": "string",
+      "title": "TomTom API key",
+      "description": "Key from developer.tomtom.com with the Search, Routing and Traffic APIs enabled. Needed for traffic and travel times.",
+      "sensitive": true
     }
   },
   "mcpServers": {
@@ -60,6 +67,17 @@
         "${CLAUDE_PLUGIN_ROOT}/scripts/run-mcp.sh",
         "weather"
       ]
+    },
+    "traffic": {
+      "command": "bash",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/run-mcp.sh",
+        "traffic"
+      ],
+      "env": {
+        "ALFRED_TOMTOM_API_KEY": "${user_config.tomtom_api_key}",
+        "ALFRED_TIMEZONE": "${user_config.timezone}"
+      }
     }
   }
 }

@@ -3,6 +3,17 @@
 All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `traffic` MCP server and skill: car routes with live and predicted traffic from TomTom, departure times for appointments and the commute, and a `TomTom API key` plugin option.
+- Secrets such as the TomTom key can also be read from `alfred.env` in the data directory.
+
+### Removed
+
+- The old WhatsApp morning report and its code (weather, traffic, almanac, news, WhatsApp, `config.yaml`). The `morning-report` skill is kept as a placeholder until the new morning routine is written.
+
 ## [0.1.0] - 2026-11-15
 
 First public release.

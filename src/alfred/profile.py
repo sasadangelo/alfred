@@ -1,6 +1,6 @@
 """Alfred's user profile: personal facts learned from the user and stored locally.
 
-The profile lives outside the repository (default ``~/.claude/config/profile.yaml``) with
+The profile lives outside the repository (``profile.yaml`` in the plugin data directory) with
 owner-only permissions. Functions that change it are pure: they take a ``Profile`` and return
 an updated copy, so callers decide when to ``save_profile``.
 """

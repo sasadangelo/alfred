@@ -9,9 +9,15 @@
     {
       "name": "alfred",
       "source": "./",
-      "description": "A personal assistant for Claude Code: Google Calendar and Google Tasks, weather forecasts, and a local profile that personalizes every answer.",
+      "description": "A personal assistant for Claude Code: Google Calendar and Google Tasks, weather forecasts, traffic and travel times, and a local profile that personalizes every answer.",
       "category": "productivity",
-      "tags": ["personal-assistant", "google-calendar", "google-tasks", "weather"]
+      "tags": [
+        "personal-assistant",
+        "google-calendar",
+        "google-tasks",
+        "weather",
+        "traffic"
+      ]
     }
   ]
 }

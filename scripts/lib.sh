@@ -4,10 +4,10 @@
 # Inside the Claude Code plugin, code lives in CLAUDE_PLUGIN_ROOT (replaced on every update) and
 # everything written at runtime lives in CLAUDE_PLUGIN_DATA (kept across updates): the Python
 # virtual environment, the user profile and the Google credentials. Outside the plugin, the
-# repository is the root and ~/.claude/config is the data directory.
+# repository is the root and the data directory is the one the installed plugin will use.
 
 ALFRED_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-ALFRED_DATA="${ALFRED_DATA_DIR:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/config}}"
+ALFRED_DATA="${ALFRED_DATA_DIR:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/alfred-sasadangelo}}"
 export ALFRED_DATA_DIR="$ALFRED_DATA"
 
 # Run a Python module of the alfred package with the project's locked dependencies.

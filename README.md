@@ -4,7 +4,7 @@
   <img src="docs/icon.png" alt="Alfred, a butler in a tuxedo" width="260">
 </p>
 
-Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com). It connects Claude to your Google Calendar and Google Tasks, gives weather forecasts, and keeps a local profile of you (family, places, habits) so every answer fits your life. All personal data stays on your machine.
+Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com). It connects Claude to your Google Calendar and Google Tasks, gives weather forecasts and travel times with live traffic, and keeps a local profile of you (family, places, habits) so every answer fits your life. All personal data stays on your machine.
 
 <p align="center">
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.1.0-22325a?style=flat-square" alt="Version 0.1.0"></a>
@@ -30,14 +30,16 @@ Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com)
 | `google-calendar` | "What do I have this week?", "Add the dentist on Friday at 10", "Remove the recurring garden cleaning" |
 | `google-tasks` | "What do I have to do this weekend?", "Add 'paint the garage' to the Home list", "Mark the cameras as done" |
 | `weather` | "What's the weather tomorrow?", "How should I dress for Sunday's run?", "Do I need an umbrella for the office?" |
+| `traffic` | "How is the traffic to the office?", "When should I leave to be at the dentist at 10?" |
 | `user-profile` | "Remember my wife's birthday is July 4", "What do you know about me?", "Forget my old car" |
-| `morning-report` | "Send me the morning report" (weather, traffic and an almanac entry through WhatsApp) |
+| `morning-report` | Being rewritten: not working in this version |
 
 Behind the skills, the plugin starts three MCP servers:
 
 - **google-workspace**: Google Calendar (events, recurring series, reminders, availability, calendars) and Google Tasks (lists, tasks, subtasks, due dates).
 - **user-profile**: your local profile, with people identified by name, surname and birth date.
 - **weather**: forecasts and place search from [Open-Meteo](https://open-meteo.com) (free, no API key).
+- **traffic**: car routes with live and predicted traffic, and address search, from [TomTom](https://developer.tomtom.com) (free key required).
 
 ## Requirements
 
@@ -58,6 +60,7 @@ When the plugin is enabled, Claude Code asks for two options, which you can chan
 
 - **Timezone**: defaults to `Europe/Rome`.
 - **Google OAuth client file**: see below.
+- **TomTom API key**: for traffic and travel times. Create a free key at [developer.tomtom.com](https://developer.tomtom.com) and enable the Search, Routing and Traffic APIs for it. It is stored in your system keychain.
 
 ## Connect Google Calendar and Google Tasks
 
@@ -76,13 +79,6 @@ The token is saved next to the client file with owner-only permissions. Alfred r
 - `calendar.calendarlist.readonly`: list your calendars
 - `tasks`: read and manage tasks
 
-## Morning report (optional)
-
-The WhatsApp morning report reads two files from the plugin data directory. Copy the templates and fill them in:
-
-- `.env.example` → `alfred.env`: WhatsApp recipient and, for traffic, a TomTom API key.
-- `config.yaml.example` → `config.yaml`: your name, home, work days and news feeds.
-
 ## Your data
 
 Alfred stores everything in the plugin data directory, `~/.claude/plugins/data/alfred-sasadangelo/`, which survives plugin updates:
@@ -93,7 +89,7 @@ Alfred stores everything in the plugin data directory, `~/.claude/plugins/data/a
 | `google-oauth-client.json`, `google-token.json` | Google credentials |
 | `venv/` | The Python environment |
 
-Files are created with owner-only permissions. Nothing is sent anywhere except the requests each feature needs: Google APIs for Calendar and Tasks, and the town name (never your address or name) to Open-Meteo.
+Files are created with owner-only permissions. Nothing is sent anywhere except the requests each feature needs: Google APIs for Calendar and Tasks, the town name (never your address or name) to Open-Meteo, and the start and end addresses of a trip to TomTom.
 
 Uninstalling the plugin deletes this directory. To keep your profile, uninstall with `--keep-data`.
 
