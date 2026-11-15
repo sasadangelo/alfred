@@ -1,8 +1,27 @@
-# Alfred
+# Alfred 🎩 — Your personal assistant, inside Claude Code
 
-Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com). It connects Claude to your Google Calendar and Google Tasks, gives weather forecasts, and keeps a local profile of you (family, places, habits) so every answer fits your life.
+<p align="center">
+  <img src="docs/icon.png" alt="Alfred, a butler in a tuxedo" width="260">
+</p>
 
-All personal data stays on your machine.
+Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com). It connects Claude to your Google Calendar and Google Tasks, gives weather forecasts, and keeps a local profile of you (family, places, habits) so every answer fits your life. All personal data stays on your machine.
+
+<p align="center">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.1.0-22325a?style=flat-square" alt="Version 0.1.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-d4af37?style=flat-square" alt="MIT license"></a>
+  <a href="https://code.claude.com/docs/en/plugins"><img src="https://img.shields.io/badge/Claude%20Code-plugin-D97757?style=flat-square" alt="Claude Code plugin"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%E2%80%933.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10–3.14"></a>
+  <a href="https://developers.google.com/workspace"><img src="https://img.shields.io/badge/Google-Calendar%20%C2%B7%20Tasks-4285F4?style=flat-square&logo=google&logoColor=white" alt="Google Calendar and Tasks"></a>
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#connect-google-calendar-and-google-tasks">Connect Google</a> ·
+  <a href="#what-it-does">Features</a> ·
+  <a href="#your-data">Your data</a> ·
+  <a href="#development">Development</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
 ## What it does
 
