@@ -1,0 +1,29 @@
+# Alfred morning report configuration.
+# Copy this file to config.yaml in the plugin data directory
+# (~/.claude/plugins/data/alfred-sasadangelo/config.yaml) and fill it in.
+
+first_name: Mario
+last_name: Rossi
+
+home:
+  address: Via Roma 1, 00100 Roma
+
+work:
+  company: Example S.p.A.
+  address: Via Milano 10, 00100 Roma
+  # Days you commute to the office: the report adds home-to-work traffic on these days.
+  days:
+    - monday
+    - wednesday
+    - thursday
+
+# Optional: a school address, or null.
+school: null
+
+news:
+  max_items_per_feed: 3
+  feeds:
+    - title: BBC News
+      url: https://feeds.bbci.co.uk/news/world/rss.xml
+    - title: Science Daily
+      url: https://www.sciencedaily.com/rss/top/science.xml

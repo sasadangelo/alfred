@@ -6,27 +6,24 @@ from unittest.mock import Mock
 import pytest
 import requests
 
-from alfred import google_auth
+from alfred import google_auth, paths
 from alfred.google_auth import GoogleAPIError, check_response
 
 
-def test_credential_files_prefer_config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_credential_files_live_in_the_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(google_auth.TOKEN_FILE_ENV, raising=False)
-    monkeypatch.setenv(google_auth.CONFIG_DIR_ENV, str(tmp_path / "config"))
-    monkeypatch.setattr(google_auth, "LEGACY_CREDENTIALS_DIR", tmp_path / "legacy")
+    monkeypatch.delenv(google_auth.CLIENT_SECRET_FILE_ENV, raising=False)
+    monkeypatch.setenv(paths.DATA_DIR_ENV, str(tmp_path))
 
-    assert google_auth.token_file() == tmp_path / "config" / google_auth.TOKEN_FILENAME
+    assert google_auth.token_file() == tmp_path / "google-token.json"
+    assert google_auth.client_secret_file() == tmp_path / "google-oauth-client.json"
 
 
-def test_credential_files_fall_back_to_legacy_repo_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    legacy = tmp_path / "legacy"
-    legacy.mkdir()
-    (legacy / google_auth.TOKEN_FILENAME).write_text("{}", encoding="utf-8")
-    monkeypatch.delenv(google_auth.TOKEN_FILE_ENV, raising=False)
-    monkeypatch.setenv(google_auth.CONFIG_DIR_ENV, str(tmp_path / "config"))
-    monkeypatch.setattr(google_auth, "LEGACY_CREDENTIALS_DIR", legacy)
+def test_unsubstituted_plugin_placeholder_is_ignored(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(google_auth.CLIENT_SECRET_FILE_ENV, "${user_config.google_oauth_client}")
+    monkeypatch.setenv(paths.DATA_DIR_ENV, str(tmp_path))
 
-    assert google_auth.token_file() == legacy / google_auth.TOKEN_FILENAME
+    assert google_auth.client_secret_file() == tmp_path / "google-oauth-client.json"
 
 
 def test_credential_files_honour_explicit_env_var(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

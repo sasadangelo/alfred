@@ -52,11 +52,16 @@ Create, update, or delete events only at the user's explicit request. When an ap
 
 ## Initial setup
 
-If a tool reports that Google Calendar is not authorized, or that the saved authorization does not include a permission (for example after `list_google_calendars` was added):
+If a tool reports that Google is not authorized, that the saved authorization lacks a permission, or that a Google API is not enabled:
 
-1. Ask the user to enable the Google Calendar API and create an OAuth client of type **Desktop app** in Google Cloud Console.
-2. Have the user save the downloaded client JSON as `~/.claude/config/google-oauth-client.json` (or `credentials/google-oauth-client.json` in the Alfred repository). Never ask them to paste the file or its contents into chat.
-3. Run `bash scripts/authorize-google.sh` and let the user complete Google's consent screen in the browser.
-4. Restart or reconnect the `google-workspace` MCP server.
+1. Ask the user to create a Google Cloud project, enable the Google Calendar API and the Google Tasks API, and create an OAuth client of type **Desktop app**.
+2. Have the user either set the plugin option "Google OAuth client file" to the downloaded JSON, or save it as `google-oauth-client.json` in `${CLAUDE_PLUGIN_DATA}`. Never ask them to paste the file or its contents into chat.
+3. Run the authorization, which opens Google's consent page in the browser and waits for the user to accept:
 
-The generated token is stored next to the client file, as `google-calendar-token.json`, with owner-only permissions. Do not print, copy, or commit OAuth files.
+   ```bash
+   CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" ALFRED_GOOGLE_OAUTH_CLIENT_FILE="${user_config.google_oauth_client}" bash "${CLAUDE_PLUGIN_ROOT}/scripts/authorize-google.sh"
+   ```
+
+4. Ask the user to reconnect the `google-workspace` MCP server (`/mcp`).
+
+The token is saved as `google-token.json` in `${CLAUDE_PLUGIN_DATA}` with owner-only permissions. Do not print, copy, or commit OAuth files.

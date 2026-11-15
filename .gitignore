@@ -125,5 +125,10 @@ __marimo__/
 # Alfred runtime data
 sessione_whatsapp.db
 alfred-cron.log
-credentials/google-oauth-client.json
-credentials/google-calendar-token.json
+# Personal configuration and credentials: never commit them.
+config.yaml
+alfred.env
+credentials/
+google-oauth-client.json
+google-token.json
+profile.yaml

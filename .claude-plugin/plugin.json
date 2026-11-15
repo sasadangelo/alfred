@@ -1,0 +1,45 @@
+{
+  "name": "alfred",
+  "displayName": "Alfred",
+  "version": "0.1.0",
+  "description": "A personal assistant for Claude Code: Google Calendar and Google Tasks, weather and running forecasts, and a local profile that personalizes every answer.",
+  "author": {
+    "name": "Salvatore D'Angelo",
+    "url": "https://github.com/sasadangelo"
+  },
+  "homepage": "https://github.com/sasadangelo/alfred",
+  "repository": "https://github.com/sasadangelo/alfred",
+  "license": "MIT",
+  "keywords": ["personal-assistant", "google-calendar", "google-tasks", "weather", "productivity"],
+  "userConfig": {
+    "timezone": {
+      "type": "string",
+      "title": "Timezone",
+      "description": "IANA timezone used to read dates and times, for example Europe/Rome.",
+      "default": "Europe/Rome"
+    },
+    "google_oauth_client": {
+      "type": "file",
+      "title": "Google OAuth client file",
+      "description": "JSON of a \"Desktop app\" OAuth client from Google Cloud Console, with the Calendar and Tasks APIs enabled. Leave empty to use google-oauth-client.json in the plugin data directory."
+    }
+  },
+  "mcpServers": {
+    "google-workspace": {
+      "command": "bash",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/run-mcp.sh", "google-workspace"],
+      "env": {
+        "ALFRED_TIMEZONE": "${user_config.timezone}",
+        "ALFRED_GOOGLE_OAUTH_CLIENT_FILE": "${user_config.google_oauth_client}"
+      }
+    },
+    "user-profile": {
+      "command": "bash",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/run-mcp.sh", "user-profile"]
+    },
+    "weather": {
+      "command": "bash",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/run-mcp.sh", "weather"]
+    }
+  }
+}

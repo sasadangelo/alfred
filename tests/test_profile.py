@@ -3,11 +3,11 @@
 import stat
 from datetime import date
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
 
+from alfred import paths
 from alfred import profile as store
 
 TODAY = date(2026, 11, 12)
@@ -40,7 +40,7 @@ def test_save_and_load_round_trip_with_owner_only_permissions(profile_path: Path
 
 def test_profile_file_defaults_to_config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(store.PROFILE_FILE_ENV, raising=False)
-    monkeypatch.setenv(store.CONFIG_DIR_ENV, str(tmp_path))
+    monkeypatch.setenv(paths.DATA_DIR_ENV, str(tmp_path))
 
     assert store.profile_file() == tmp_path / "profile.yaml"
 
@@ -175,25 +175,6 @@ def test_forget_removes_one_item(section: store.Section, key: str) -> None:
 def test_forget_unknown_item_raises() -> None:
     with pytest.raises(KeyError, match="nothing saved"):
         store.forget(store.Profile(), "family", "Nessuno")
-
-
-def test_seed_from_settings_fills_only_missing_facts() -> None:
-    settings = SimpleNamespace(
-        first_name="Mario",
-        last_name="Rossi",
-        home=SimpleNamespace(address="Via Roma 1"),
-        work=SimpleNamespace(address="Via Milano 2", company="ACME"),
-        school=None,
-    )
-    profile = store.save_place(store.Profile(), "home", "Via Napoli 3", today=TODAY)
-
-    seeded = store.seed_from_settings(profile, settings, today=TODAY)
-
-    assert seeded.me is not None and seeded.me.full_name == "Mario Rossi"
-    assert seeded.places["home"].address == "Via Napoli 3"
-    assert seeded.places["work"].company == "ACME"
-    assert seeded.places["work"].source == "config.yaml"
-    assert "school" not in seeded.places
 
 
 def test_deceased_relatives_have_no_age_but_keep_anniversaries() -> None:

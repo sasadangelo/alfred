@@ -15,9 +15,9 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from alfred.paths import data_dir, env_value
+
 PROFILE_FILE_ENV = "ALFRED_PROFILE_FILE"
-CONFIG_DIR_ENV = "ALFRED_CONFIG_DIR"
-DEFAULT_CONFIG_DIR = Path.home() / ".claude" / "config"
 PROFILE_FILENAME = "profile.yaml"
 UPCOMING_BIRTHDAY_DAYS = 30
 
@@ -160,10 +160,10 @@ class Profile(BaseModel):
 
 
 def profile_file() -> Path:
-    """Return the profile path: ALFRED_PROFILE_FILE, else profile.yaml in ALFRED_CONFIG_DIR."""
-    if explicit := os.environ.get(PROFILE_FILE_ENV):
+    """Return the profile path: ALFRED_PROFILE_FILE, else profile.yaml in the data directory."""
+    if explicit := env_value(PROFILE_FILE_ENV):
         return Path(explicit).expanduser()
-    return Path(os.environ.get(CONFIG_DIR_ENV, DEFAULT_CONFIG_DIR)).expanduser() / PROFILE_FILENAME
+    return data_dir() / PROFILE_FILENAME
 
 
 def load_profile(path: Path | None = None) -> Profile:
@@ -522,28 +522,3 @@ def forget(profile: Profile, section: Section, key: str = "", birth_date: date |
     if len(remaining) == len(getattr(profile, section)):
         raise KeyError(f"nothing saved as {key!r} in {section}")
     return profile.model_copy(update={section: remaining})
-
-
-def seed_from_settings(profile: Profile, settings: Any, today: date | None = None) -> Profile:
-    """Fill the user's name and home/work/school from config.yaml when the profile lacks them."""
-    today = today or date.today()
-    if profile.me is None and getattr(settings, "first_name", None):
-        profile = update_me(
-            profile,
-            first_name=settings.first_name,
-            last_name=getattr(settings, "last_name", ""),
-            source="config.yaml",
-            today=today,
-        )
-    for label in ("home", "work", "school"):
-        place = getattr(settings, label, None)
-        if place is not None and label not in profile.places:
-            profile = save_place(
-                profile,
-                label,
-                place.address,
-                company=getattr(place, "company", None),
-                source="config.yaml",
-                today=today,
-            )
-    return profile

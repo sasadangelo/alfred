@@ -42,4 +42,4 @@ Use the `google-workspace` MCP task tools to manage the user's Google Tasks. Too
 
 ## Authorization
 
-If a tool reports that Google is not authorized, that the authorization lacks a permission, or that the Tasks API is not enabled, ask the user to run `bash scripts/authorize-google.sh` (after enabling the Google Tasks API in Google Cloud Console if needed) and then reconnect the `google-workspace` MCP server.
+If a tool reports that Google is not authorized, that the authorization lacks a permission, or that the Tasks API is not enabled, follow the "Initial setup" steps of the `google-calendar` skill: one authorization covers both Calendar and Tasks.

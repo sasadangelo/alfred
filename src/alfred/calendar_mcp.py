@@ -16,7 +16,7 @@ from alfred.calendar import (
     search_events,
     update_event,
 )
-from alfred.core.config import get_settings
+from alfred.paths import timezone as configured_timezone
 
 INSTRUCTIONS = (
     "Google Calendar: every tool works on the primary calendar unless a calendar_id from "
@@ -63,7 +63,7 @@ def list_calendar_events(
     In each event, reminder_minutes is null when the calendar's default reminders apply and
     busy is false for events marked as "free".
     """
-    timezone = get_settings().calendar.timezone
+    timezone = configured_timezone()
     return search_events(
         _parse_range_bound(start, timezone),
         _parse_range_bound(end, timezone),
@@ -80,7 +80,7 @@ def check_calendar_availability(start: str, end: str, calendar_id: str = "primar
     conflicts are overlapping busy events (all-day ones included, e.g. holidays);
     other_events overlap but are marked free, such as contact birthdays.
     """
-    timezone = get_settings().calendar.timezone
+    timezone = configured_timezone()
     return check_availability(
         _parse_range_bound(start, timezone),
         _parse_range_bound(end, timezone),
@@ -118,7 +118,7 @@ def create_calendar_event(
     local midnight, so 480 means 16:00 the day before); omit it for the calendar defaults.
     recurrence takes RFC 5545 lines, e.g. ["RRULE:FREQ=MONTHLY;BYMONTHDAY=15"].
     """
-    timezone = get_settings().calendar.timezone
+    timezone = configured_timezone()
     return create_event(
         summary,
         _parse_event_time(start, timezone),
@@ -149,7 +149,7 @@ def update_calendar_event(
     reminder_minutes replaces the event's popup notifications (minutes before start; for all-day
     events start is local midnight, so 420 means 17:00 the day before). Pass [] to remove them.
     """
-    timezone = get_settings().calendar.timezone
+    timezone = configured_timezone()
     return update_event(
         event_id,
         summary=summary,

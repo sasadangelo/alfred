@@ -1,6 +1,5 @@
 """Shared Google OAuth credentials and API error handling for the Google integrations."""
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -9,20 +8,18 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from alfred.paths import data_dir, env_value
+
 CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events"
 CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
 TASKS_SCOPE = "https://www.googleapis.com/auth/tasks"
 GOOGLE_SCOPES = [CALENDAR_EVENTS_SCOPE, CALENDAR_LIST_SCOPE, TASKS_SCOPE]
 
-CONFIG_DIR_ENV = "ALFRED_CONFIG_DIR"
-CLIENT_SECRET_FILE_ENV = "ALFRED_GOOGLE_CALENDAR_CLIENT_SECRET_FILE"  # pragma: allowlist secret
-TOKEN_FILE_ENV = "ALFRED_GOOGLE_CALENDAR_TOKEN_FILE"
-DEFAULT_CONFIG_DIR = Path.home() / ".claude" / "config"
-LEGACY_CREDENTIALS_DIR = Path(__file__).resolve().parents[2] / "credentials"
+CLIENT_SECRET_FILE_ENV = "ALFRED_GOOGLE_OAUTH_CLIENT_FILE"  # pragma: allowlist secret
+TOKEN_FILE_ENV = "ALFRED_GOOGLE_TOKEN_FILE"
 CLIENT_SECRET_FILENAME = "google-oauth-client.json"  # pragma: allowlist secret
-# Kept for compatibility with tokens saved before Tasks support; it now covers every Google scope.
-TOKEN_FILENAME = "google-calendar-token.json"
-AUTHORIZE_HINT = "Run `bash scripts/authorize-google.sh` to authorize Alfred again."
+TOKEN_FILENAME = "google-token.json"
+AUTHORIZE_HINT = "Authorize Alfred again with the plugin's scripts/authorize-google.sh."
 REQUEST_TIMEOUT_SECONDS = 15
 
 
@@ -31,14 +28,10 @@ class GoogleAPIError(RuntimeError):
 
 
 def _credential_file(env_name: str, filename: str) -> Path:
-    """Resolve a credential file: explicit env var, then the config dir, then the legacy repo folder."""
-    if explicit := os.environ.get(env_name):
+    """Resolve a credential file: an explicit env var, else ``filename`` in the data directory."""
+    if explicit := env_value(env_name):
         return Path(explicit).expanduser()
-    preferred = Path(os.environ.get(CONFIG_DIR_ENV, DEFAULT_CONFIG_DIR)).expanduser() / filename
-    legacy = LEGACY_CREDENTIALS_DIR / filename
-    if not preferred.exists() and legacy.exists():
-        return legacy
-    return preferred
+    return data_dir() / filename
 
 
 def client_secret_file() -> Path:

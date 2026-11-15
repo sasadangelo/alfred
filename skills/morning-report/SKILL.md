@@ -1,35 +1,39 @@
 ---
 name: morning-report
-description: Use when the user asks to generate or send Alfred's morning weather report through WhatsApp.
+description: Use when the user asks to generate or send Alfred's morning report (weather, traffic, almanac) through WhatsApp.
 ---
 
 # Morning Report
 
-Generate and send Alfred's morning weather report from the repository's Python application.
+Send Alfred's morning report through WhatsApp with the plugin's Python application.
 
 ## Steps
 
-1. Confirm the repository root contains `pyproject.toml` and `src/alfred/`.
-2. Confirm `ALFRED_WHATSAPP_RECIPIENT` is set in the execution environment. Never print its value.
-3. Run the report command from the repository root:
+1. Run the report:
 
    ```bash
-   uv run python -m alfred.alfred
+   CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-morning-report.sh"
    ```
 
-4. Report whether WhatsApp authentication and delivery succeeded.
-5. If the command fails, report the error without retrying automatically to avoid duplicate messages.
+2. Report whether WhatsApp authentication and delivery succeeded.
+3. If the command fails, report the error without retrying automatically, to avoid duplicate messages.
+
+## Setup
+
+The script reads two files from `${CLAUDE_PLUGIN_DATA}` and stops with a clear message if one is missing:
+
+- `alfred.env`: `ALFRED_WHATSAPP_RECIPIENT` and, for traffic, `ALFRED_TOMTOM_API_KEY`. Template: `${CLAUDE_PLUGIN_ROOT}/.env.example`.
+- `config.yaml`: name, home, work and news feeds. Template: `${CLAUDE_PLUGIN_ROOT}/config.yaml.example`.
+
+The first run shows a WhatsApp pairing code or QR code in the output; the user links the device from WhatsApp. The session is then kept in `${CLAUDE_PLUGIN_DATA}`.
 
 ## Current capability
 
-The Python application sends the daily weather bulletin and one short historical curiosity from Wikipedia. On configured
-workdays, it also includes the current home-to-work traffic situation when `ALFRED_TOMTOM_API_KEY` is configured.
-News is not included.
+The report contains the daily weather bulletin and one short historical curiosity from Wikipedia. On configured workdays it also includes the home-to-work traffic when `ALFRED_TOMTOM_API_KEY` is set. News is not included.
 
 ## Safety
 
-- Read the recipient and TomTom API key only from environment variables; never hard-code or reveal them.
-- Never send more than one message per invocation.
+- Never print the WhatsApp recipient, the TomTom API key, or the contents of `alfred.env`.
+- Never send more than one message per request.
 - Never delete the WhatsApp session database.
-- Do not expose session files, credentials, API keys, or personal phone numbers in output.
-- Do not modify application code as part of a normal report invocation.
+- Do not modify application code as part of a normal report request.

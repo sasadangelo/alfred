@@ -7,7 +7,6 @@ from typing import Any
 from fastmcp import FastMCP
 
 from alfred import profile as store
-from alfred.core.config import get_settings
 
 mcp = FastMCP(
     name="user-profile",
@@ -19,16 +18,7 @@ mcp = FastMCP(
 
 
 def _load() -> store.Profile:
-    """Load the profile, seeding name and places from config.yaml the first time."""
-    profile = store.load_profile()
-    try:
-        settings = get_settings()
-    except Exception:  # config.yaml is optional for the profile  # noqa: BLE001
-        return profile
-    seeded = store.seed_from_settings(profile, settings)
-    if seeded != profile:
-        store.save_profile(seeded)
-    return seeded
+    return store.load_profile()
 
 
 def _change(update: Callable[[store.Profile], store.Profile]) -> dict[str, Any]:

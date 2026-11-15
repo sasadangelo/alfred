@@ -1,20 +1,12 @@
 #!/usr/bin/env bash
+# Authorize Alfred to use Google Calendar and Google Tasks. Opens Google's consent page in the
+# browser and saves the token in the data directory with owner-only permissions.
+#
+# The OAuth client JSON (a "Desktop app" client from Google Cloud Console) is read from
+# ALFRED_GOOGLE_OAUTH_CLIENT_FILE, or from google-oauth-client.json in the data directory.
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${ALFRED_ENV_FILE:-$HOME/.claude/config/alfred.env}"
-CONFIG_FILE="${ALFRED_CONFIG_FILE:-$HOME/.claude/config/config.yaml}"
-if [ ! -f "$CONFIG_FILE" ] && [ -f "$PROJECT_ROOT/config.yaml" ]; then
-  CONFIG_FILE="$PROJECT_ROOT/config.yaml"
-fi
+# shellcheck source=scripts/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-if [ -f "$ENV_FILE" ]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
-fi
-
-export ALFRED_CONFIG_FILE="$CONFIG_FILE"
-cd "$PROJECT_ROOT"
-uv run python -m alfred.google_auth
+alfred_python alfred.google_auth
