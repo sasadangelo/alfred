@@ -7,6 +7,7 @@ All notable changes to this plugin are documented here. The format follows
 
 ### Added
 
+- Gmail: save email attachments (PDF by default) into a folder in the home directory, with clear names, duplicate detection by content and no overwriting.
 - `fuel` MCP server and skill: prices of individual Italian stations from the Ministry's observatory (MIMIT), cheapest near a place for the fuel of the user's vehicles, with the time each price was communicated, with the stations within 5 km of home and work saved in `fuel-stations.yaml` closest first, the usual station marked, and live prices by distance or by price.
 - Gmail tools in the `google-workspace` server and the `gmail` skill: search, read, create and apply labels, archive, mark read/unread, trash and restore, with the `gmail.modify` permission (no sending, no permanent deletion). Requires enabling the Gmail API and authorizing again.
 - `traffic` MCP server and skill: car routes with live and predicted traffic from TomTom, departure times for appointments and the commute, and a `TomTom API key` plugin option.

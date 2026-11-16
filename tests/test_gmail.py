@@ -1,6 +1,7 @@
 """Tests for basic Gmail operations."""
 
 import base64
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
@@ -241,3 +242,76 @@ def test_create_label_creates_nested_label() -> None:
 def test_create_label_rejects_empty_parts(name: str) -> None:
     with pytest.raises(ValueError, match="empty"):
         gmail.create_label(name, session=Mock())
+
+
+def _message_with_attachments(*files: tuple[str, bytes]) -> dict[str, Any]:
+    parts: list[dict[str, Any]] = [{"mimeType": "text/plain", "body": {"data": _b64("Ecco la fattura")}}]
+    for index, (filename, content) in enumerate(files):
+        parts.append(
+            {
+                "mimeType": "application/octet-stream",
+                "filename": filename,
+                "body": {"attachmentId": f"att-{index}"},
+                "_content": content,
+            }
+        )
+    return {"id": "m1", "payload": {"mimeType": "multipart/mixed", "parts": parts}}
+
+
+def _attachment_session(message: dict[str, Any]) -> Mock:
+    contents = {part["body"].get("attachmentId"): part.get("_content") for part in message["payload"]["parts"]}
+
+    def get(url: str, **_: Any) -> Mock:
+        if "/attachments/" in url:
+            content = contents[url.rsplit("/", 1)[1]]
+            return _response({"data": base64.urlsafe_b64encode(content).decode()})
+        return _response(message)
+
+    session = Mock()
+    session.get.side_effect = get
+    return session
+
+
+@pytest.fixture
+def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    return tmp_path
+
+
+def test_save_attachments_renames_and_skips_other_types(home: Path) -> None:
+    message = _message_with_attachments(("Fattura.PDF", b"%PDF-1"), ("logo.png", b"img"))
+
+    results = gmail.save_attachments(
+        "m1",
+        str(home / "Bollette" / "Luce"),
+        name="2026-11-12_Illumia_fattura_412",
+        session=_attachment_session(message),
+    )
+
+    assert [(r["status"], Path(r["path"]).name) for r in results] == [("saved", "2026-11-12_Illumia_fattura_412.pdf")]
+    assert (home / "Bollette" / "Luce" / "2026-11-12_Illumia_fattura_412.pdf").read_bytes() == b"%PDF-1"
+
+
+def test_save_attachments_skips_duplicates_and_never_overwrites(home: Path) -> None:
+    folder = home / "Luce"
+    folder.mkdir()
+    (folder / "fattura.pdf").write_bytes(b"old content")
+    (folder / "copia.pdf").write_bytes(b"%PDF-same")
+    message = _message_with_attachments(("fattura.pdf", b"%PDF-new"), ("altro.pdf", b"%PDF-same"))
+
+    results = gmail.save_attachments("m1", str(folder), session=_attachment_session(message))
+
+    assert [(r["status"], Path(r["path"]).name if r["path"] else "") for r in results] == [
+        ("saved", "fattura-2.pdf"),
+        ("duplicate", ""),
+    ]
+    assert (folder / "fattura.pdf").read_bytes() == b"old content"
+
+
+def test_save_attachments_refuses_folders_outside_home(home: Path) -> None:
+    with pytest.raises(ValueError, match="inside the user's home"):
+        gmail.save_attachments("m1", "/etc", session=Mock())
+
+
+def test_safe_filename_removes_path_parts() -> None:
+    assert gmail._safe_filename("../../etc/pass wd.PDF") == "etc_pass_wd.pdf"

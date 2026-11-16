@@ -5,9 +5,11 @@ permanently. Trashed messages stay recoverable in Gmail's trash for 30 days.
 """
 
 import base64
+import hashlib
 import html
 import re
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -194,6 +196,92 @@ def get_message(message_id: str, *, session: Any | None = None) -> dict[str, Any
         }
     )
     return result
+
+
+def _safe_filename(name: str) -> str:
+    """Keep a readable file name without path separators or odd characters."""
+    stem, dot, extension = name.strip().rpartition(".")
+    if not dot:
+        stem, extension = extension, ""
+    stem = re.sub(r"[^\w.-]+", "_", stem, flags=re.UNICODE).strip("._") or "allegato"
+    extension = re.sub(r"[^\w]+", "", extension).lower()
+    return f"{stem[:120]}.{extension}" if extension else stem[:120]
+
+
+def _target_folder(folder: str) -> Path:
+    path = Path(folder).expanduser().resolve()
+    home = Path.home().resolve()
+    if path != home and home not in path.parents:
+        raise ValueError("attachments can only be saved inside the user's home folder")
+    return path
+
+
+def _digest(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def save_attachments(
+    message_id: str,
+    folder: str,
+    *,
+    name: str | None = None,
+    extensions: tuple[str, ...] = ("pdf",),
+    session: Any | None = None,
+) -> list[dict[str, Any]]:
+    """Save a message's attachments into ``folder`` (inside the home folder), creating it if needed.
+
+    Only files with the given ``extensions`` are saved. ``name`` replaces the original file name
+    (a counter is added when there are several). A file whose content already exists in the
+    folder is skipped, and an existing file is never overwritten.
+    """
+    if not message_id.strip():
+        raise ValueError("message_id must not be empty")
+    target = _target_folder(folder)
+    allowed = {extension.lower().lstrip(".") for extension in extensions}
+    authorized_session = _session(session)
+    response = authorized_session.get(
+        f"{GMAIL_API_URL}/messages/{quote(message_id.strip(), safe='')}",
+        params={"format": "full"},
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    _check(response, "read the message")
+    parts = [
+        part
+        for part in _walk(response.json().get("payload", {}))
+        if part.get("filename") and part["filename"].rsplit(".", 1)[-1].lower() in allowed
+    ]
+    target.mkdir(parents=True, exist_ok=True)
+    existing = {_digest(path.read_bytes()) for path in target.iterdir() if path.is_file()}
+    results: list[dict[str, Any]] = []
+    for number, part in enumerate(parts, 1):
+        body = part.get("body", {})
+        data = body.get("data")
+        if not data and body.get("attachmentId"):
+            attachment = authorized_session.get(
+                f"{GMAIL_API_URL}/messages/{quote(message_id.strip(), safe='')}/attachments/"
+                f"{quote(str(body['attachmentId']), safe='')}",
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+            _check(attachment, "download the attachment")
+            data = attachment.json().get("data", "")
+        content = base64.urlsafe_b64decode((data or "") + "=" * (-len(data or "") % 4))
+        original = str(part["filename"])
+        extension = original.rsplit(".", 1)[-1].lower()
+        wanted = f"{name}{'-' + str(number) if len(parts) > 1 else ''}.{extension}" if name else original
+        filename = _safe_filename(wanted)
+        digest = _digest(content)
+        if digest in existing:
+            results.append({"attachment": original, "status": "duplicate", "path": ""})
+            continue
+        path = target / filename
+        counter = 2
+        while path.exists():
+            path = target / f"{Path(filename).stem}-{counter}{Path(filename).suffix}"
+            counter += 1
+        path.write_bytes(content)
+        existing.add(digest)
+        results.append({"attachment": original, "status": "saved", "path": str(path), "bytes": len(content)})
+    return results
 
 
 def _ids(message_ids: list[str]) -> list[str]:

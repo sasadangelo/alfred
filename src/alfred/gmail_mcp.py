@@ -41,6 +41,16 @@ def read_email(message_id: str) -> dict[str, Any]:
 
 
 @mcp.tool
+def save_email_attachments(
+    message_id: str, folder: str, name: str | None = None, extensions: list[str] | None = None
+) -> list[dict[str, Any]]:
+    """Save a message's attachments (PDF by default) into a folder inside the home folder, e.g.
+    "~/Documents/Bollette/Luce". name replaces the file name (e.g. "2026-11-12_Illumia_fattura_123");
+    files already present with the same content are skipped and nothing is overwritten."""
+    return gmail.save_attachments(message_id, folder, name=name, extensions=tuple(extensions or ["pdf"]))
+
+
+@mcp.tool
 def archive_emails(message_ids: list[str]) -> dict[str, int]:
     """Remove messages from the inbox (they stay in All Mail and search)."""
     return gmail.archive_messages(message_ids)
