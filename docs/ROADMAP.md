@@ -13,18 +13,18 @@ Alfred is a Claude Code plugin. Skills hold the behavior, MCP servers expose neu
 | Gmail | Search, read, label, archive, mark read or unread, trash and restore (no sending, no permanent deletion) |
 | Weather | Forecasts and alerts, with running and commute advice |
 | Traffic | Car routes with live and predicted traffic, departure times for appointments and the commute |
+| Fuel prices | Cheapest stations near a place for the user's fuel, saved stations, with the time each price was communicated |
 | User profile | Family, places with coordinates, vehicles with yearly deadlines, habits and preferences |
 
 ## Next
 
 Ordered by usefulness against effort.
 
-1. **Fuel prices.** The cheapest stations near home or along the commute, for the fuel of the user's vehicles, from the Italian Ministry's open data (MIMIT). No API key needed.
-2. **Places nearby.** Supermarkets, fuel stations and other services around home or work.
-3. **Morning routine.** A daily briefing built from the existing skills (weather, appointments, tasks, birthdays, deadlines, commute) plus news from RSS feeds. To decide: how it is delivered (chat, a Telegram bot, or an email to oneself) and when it runs.
-4. **Projects.** A project is a container with its own goal and rules, a task list, recurring calendar reminders, a document folder, a mail label and a log of decisions. Alfred loads a project's rules when the user talks about it. First candidate: a recurring household administration task with fixed rules and a two-month cycle.
-5. **Shopping module.** See [Shopping](#shopping) below.
-6. **Document archive.** Store bills, invoices, fines and receipts in Google Drive folders by type and year, starting from email attachments, and create tasks or reminders for payment deadlines. Uses the `drive.file` permission, which reaches only the files Alfred creates.
+1. **Places nearby.** Supermarkets, fuel stations and other services around home or work.
+2. **Morning routine.** A daily briefing built from the existing skills (weather, appointments, tasks, birthdays, deadlines, commute) plus news from RSS feeds. To decide: how it is delivered (chat, a Telegram bot, or an email to oneself) and when it runs.
+3. **Projects.** A project is a container with its own goal and rules, a task list, recurring calendar reminders, a document folder, a mail label and a log of decisions. Alfred loads a project's rules when the user talks about it. First candidate: a recurring household administration task with fixed rules and a two-month cycle.
+4. **Shopping module.** See [Shopping](#shopping) below.
+5. **Document archive.** Store bills, invoices, fines and receipts in Google Drive folders by type and year, starting from email attachments, and create tasks or reminders for payment deadlines. Uses the `drive.file` permission, which reaches only the files Alfred creates.
 
 ## Ideas
 

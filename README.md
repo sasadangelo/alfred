@@ -4,7 +4,7 @@
   <img src="docs/icon.png" alt="Alfred, a butler in a tuxedo" width="260">
 </p>
 
-Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com). It connects Claude to your Google Calendar, Google Tasks and Gmail, gives weather forecasts and travel times with live traffic, and keeps a local profile of you (family, places, habits) so every answer fits your life. All personal data stays on your machine.
+Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com). It connects Claude to your Google Calendar, Google Tasks and Gmail, gives weather forecasts, travel times with live traffic and fuel prices, and keeps a local profile of you (family, places, habits) so every answer fits your life. All personal data stays on your machine.
 
 <p align="center">
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.1.0-22325a?style=flat-square" alt="Version 0.1.0"></a>
@@ -32,6 +32,7 @@ Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com)
 | `gmail` | "What unread email do I have today?", "Find the invoice from Enel", "Label the OVH emails OVHCloud", "Trash the promotions older than 3 months" |
 | `weather` | "What's the weather tomorrow?", "How should I dress for Sunday's run?", "Do I need an umbrella for the office?" |
 | `traffic` | "How is the traffic to the office?", "When should I leave to be at the dentist at 10?" |
+| `fuel` | "Where is petrol cheapest near home?", "Prices at my saved stations" |
 | `user-profile` | "Remember my wife's birthday is July 4", "What do you know about me?", "Forget my old car" |
 | `morning-report` | Being rewritten: not working in this version |
 
@@ -40,6 +41,7 @@ Behind the skills, the plugin starts three MCP servers:
 - **google-workspace**: Google Calendar (events, recurring series, reminders, availability, calendars), Google Tasks (lists, tasks, subtasks, due dates) and Gmail (search, read, create and apply labels, archive, mark read or unread, trash and restore).
 - **user-profile**: your local profile, with people identified by name, surname and birth date.
 - **weather**: forecasts and place search from [Open-Meteo](https://open-meteo.com) (free, no API key).
+- **fuel**: prices of individual Italian fuel stations from the Ministry's price observatory (MIMIT), free, no API key.
 - **traffic**: car routes with live and predicted traffic, and address search, from [TomTom](https://developer.tomtom.com) (free key required).
 
 ## Requirements
@@ -91,7 +93,7 @@ Alfred stores everything in the plugin data directory, `~/.claude/plugins/data/a
 | `google-oauth-client.json`, `google-token.json` | Google credentials |
 | `venv/` | The Python environment |
 
-Files are created with owner-only permissions. Nothing is sent anywhere except the requests each feature needs: Google APIs for Calendar, Tasks and Gmail, coordinates or the town name (never your address or name) to Open-Meteo, the coordinates of a trip to TomTom, and an address to look up only when a place has no saved coordinates yet (TomTom, or OpenStreetMap for streets TomTom does not know).
+Files are created with owner-only permissions. Nothing is sent anywhere except the requests each feature needs: Google APIs for Calendar, Tasks and Gmail, coordinates or the town name (never your address or name) to Open-Meteo, the coordinates of a trip to TomTom, the coordinates of the area to search to the fuel price observatory, and an address to look up only when a place has no saved coordinates yet (TomTom, or OpenStreetMap for streets TomTom does not know).
 
 Uninstalling the plugin deletes this directory. To keep your profile, uninstall with `--keep-data`.
 

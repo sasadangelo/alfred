@@ -2,7 +2,7 @@
   "name": "alfred",
   "displayName": "Alfred",
   "version": "0.1.0",
-  "description": "A personal assistant for Claude Code: Google Calendar, Google Tasks and Gmail, weather forecasts, traffic and travel times, and a local profile that personalizes every answer.",
+  "description": "A personal assistant for Claude Code: Google Calendar, Google Tasks and Gmail, weather forecasts, traffic and travel times, fuel prices, and a local profile that personalizes every answer.",
   "author": {
     "name": "Salvatore D'Angelo",
     "url": "https://github.com/sasadangelo"
@@ -17,7 +17,8 @@
     "weather",
     "productivity",
     "traffic",
-    "gmail"
+    "gmail",
+    "fuel-prices"
   ],
   "icon": "./.claude-plugin/icon.png",
   "documentationUrl": "https://sasadangelo.github.io/alfred/",
@@ -79,6 +80,13 @@
         "ALFRED_TOMTOM_API_KEY": "${user_config.tomtom_api_key}",
         "ALFRED_TIMEZONE": "${user_config.timezone}"
       }
+    },
+    "fuel": {
+      "command": "bash",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/run-mcp.sh",
+        "fuel"
+      ]
     }
   }
 }
