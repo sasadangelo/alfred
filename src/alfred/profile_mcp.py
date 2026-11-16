@@ -7,12 +7,14 @@ from typing import Any
 from fastmcp import FastMCP
 
 from alfred import profile as store
+from alfred import subscriptions as subs
 
 mcp = FastMCP(
     name="user-profile",
     instructions=(
-        "A local profile of the user: personal details, family, places, vehicles, preferences and notes. "
-        "Dates are YYYY-MM-DD. Every change returns the updated profile."
+        "A local profile of the user: personal details, family, places, vehicles, preferences and notes, "
+        "plus utilities and subscriptions (luce, gas, internet, domini, abbonamenti) in a separate file. "
+        "Dates are YYYY-MM-DD. Every profile change returns the updated profile."
     ),
 )
 
@@ -170,6 +172,85 @@ def forget_profile_item(section: store.Section, key: str = "", birth_date: str |
     namesakes), a vehicle by id, name or plate, a place or preference by key, a note containing key, or the user's own
     details with section "me"."""
     return _change(lambda p: store.forget(p, section, key, _parse_date(birth_date)))
+
+
+def _dump(items: list[subs.Subscription]) -> list[dict[str, Any]]:
+    return [{"id": item.id} | item.model_dump(exclude_defaults=True) for item in items]
+
+
+@mcp.tool
+def list_subscriptions(
+    kind: str | None = None, place: str | None = None, include_inactive: bool = False, renewal_days: int = 60
+) -> dict[str, Any]:
+    """List the user's utilities and subscriptions (kept in subscriptions.yaml), optionally by kind
+    (e.g. "luce", "gas", "dominio") or place (e.g. "home"), plus those renewing or expiring within
+    renewal_days."""
+    items = subs.load_subscriptions()
+    matching = subs.find_subscriptions(items, kind=kind, place=place, active_only=not include_inactive)
+    return {
+        "subscriptions": _dump(matching),
+        "upcoming_renewals": subs.upcoming_renewals(items, days=renewal_days),
+    }
+
+
+@mcp.tool
+def save_subscription(
+    kind: str | None = None,
+    provider: str | None = None,
+    subscription_id: str | None = None,
+    place: str | None = None,
+    identifiers: dict[str, str | None] | None = None,
+    details: str | None = None,
+    frequency: str | None = None,
+    amount_eur: float | None = None,
+    renewal: str | None = None,
+    payment: str | None = None,
+    email_match: str | None = None,
+    documents_folder: str | None = None,
+    filename_pattern: str | None = None,
+    active: bool | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """Add or update a utility or subscription; omitted fields are kept.
+
+    kind e.g. "luce", "gas", "acqua", "internet", "telefono", "assicurazione", "dominio", "streaming";
+    provider e.g. "Illumia"; place is a profile place label ("home") or a short name ("condominio").
+    identifiers merges codes such as {"POD": "...", "cliente": "..."}; an empty value removes one.
+    frequency: mensile, bimestrale, trimestrale, semestrale, annuale or "una tantum".
+    renewal is MM-DD for a yearly renewal or YYYY-MM-DD for a one-off expiry.
+    email_match is a Gmail query that finds its emails (e.g. "from:illumia.it"); documents_folder and
+    filename_pattern say where and how to save its bills (e.g. "{provider}_{periodo}.pdf").
+    Pass subscription_id to change an existing entry; without it, the same kind + provider + place
+    is updated instead of duplicated. active=false keeps a cancelled one for the record.
+    """
+    fields = {
+        "kind": kind,
+        "provider": provider,
+        "place": place,
+        "details": details,
+        "frequency": frequency,
+        "amount_eur": amount_eur,
+        "renewal": renewal,
+        "payment": payment,
+        "email_match": email_match,
+        "documents_folder": documents_folder,
+        "filename_pattern": filename_pattern,
+        "active": active,
+        "notes": notes,
+    }
+    items, entry = subs.save_subscription(
+        subs.load_subscriptions(), subscription_id=subscription_id, identifiers=identifiers, **fields
+    )
+    subs.write_subscriptions(items)
+    return {"saved": _dump([entry])[0], "count": len(items)}
+
+
+@mcp.tool
+def forget_subscription(subscription_id: str) -> dict[str, Any]:
+    """Delete a utility or subscription by id (to keep it for the record, save it with active=false)."""
+    items = subs.forget_subscription(subs.load_subscriptions(), subscription_id)
+    subs.write_subscriptions(items)
+    return {"removed": subscription_id, "count": len(items)}
 
 
 if __name__ == "__main__":

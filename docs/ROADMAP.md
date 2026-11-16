@@ -21,10 +21,11 @@ Alfred is a Claude Code plugin. Skills hold the behavior, MCP servers expose neu
 Ordered by usefulness against effort.
 
 1. **Places nearby.** Supermarkets, fuel stations and other services around home or work.
-2. **Morning routine.** A daily briefing built from the existing skills (weather, appointments, tasks, birthdays, deadlines, commute) plus news from RSS feeds. To decide: how it is delivered (chat, a Telegram bot, or an email to oneself) and when it runs.
-3. **Projects.** A project is a container with its own goal and rules, a task list, recurring calendar reminders, a document folder, a mail label and a log of decisions. Alfred loads a project's rules when the user talks about it. First candidate: a recurring household administration task with fixed rules and a two-month cycle.
-4. **Shopping module.** See [Shopping](#shopping) below.
-5. **Document archive.** Store bills, invoices, fines and receipts in Google Drive folders by type and year, starting from email attachments, and create tasks or reminders for payment deadlines. Uses the `drive.file` permission, which reaches only the files Alfred creates.
+2. **News.** A news service on its own, from RSS feeds the user chooses (general, sports, technology, science): latest headlines by source or topic, short summaries in Italian, similar stories from different sources grouped together, and a "read later" list. Free and keyless; the feeds are configured by the user.
+3. **Morning routine.** A daily briefing built from the existing skills (weather, appointments, tasks, birthdays, deadlines, commute) and the news service. To decide: how it is delivered (chat, a Telegram bot, or an email to oneself) and when it runs.
+4. **Projects.** A project is a container with its own goal and rules, a task list, recurring calendar reminders, a document folder, a mail label and a log of decisions. Alfred loads a project's rules when the user talks about it. First candidate: a recurring household administration task with fixed rules and a two-month cycle.
+5. **Shopping module.** See [Shopping](#shopping) below.
+6. **Document archive.** See [Documents](#documents) below.
 
 ## Ideas
 
@@ -81,6 +82,29 @@ A dedicated module, because shopping has its own data and rules: a library with 
 4. Store comparison for a whole list, and advice for large stock-up shopping.
 
 Receipts show the package price but not the size: the size is stored once per product in the catalog, so later receipts are enough to compute the unit price. From the phone, Google Tasks covers ticking; a Telegram bot, shared with the morning routine, could receive photos of receipts and labels.
+
+### Documents
+
+Two levels, each with interchangeable providers:
+
+| Level | Purpose | Examples |
+|---|---|---|
+| Working archive | Recent documents, organized by type and year, reachable from the phone | Google Drive (`drive.file` permission, only the files Alfred creates), Dropbox |
+| Backup archive | Old documents, kept cheaply for years; slower to retrieve | S3-compatible storage: AWS S3 (Glacier classes), Backblaze B2, Wasabi |
+
+**Flow**
+
+1. Documents arrive mostly as email attachments (bills, invoices, fines, receipts) or are added by the user; Alfred files them in the working archive and, when they have a due date, creates a task or reminder.
+2. A retention policy per document type, set by the user, says how many years a document stays in the working archive.
+3. When that time is up, the document is copied to the backup archive, the copy is verified, and only then it is removed from the working archive.
+4. Optionally, after a further number of years, it is deleted from the backup too.
+
+**Safeguards**
+
+- Files are encrypted on the user's computer before they reach the backup archive; the keys never leave it.
+- A local index records every document (type, date, origin, where it is now), so Alfred can always find and restore it.
+- Nothing is deleted from the working archive until the backup copy is verified, and every move is logged.
+- Retention years are decided by the user per type; legal retention periods vary by document, and for tax documents an accountant should be consulted.
 
 ### Mail
 
