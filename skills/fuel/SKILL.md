@@ -22,9 +22,12 @@ Use the `fuel` MCP tools for prices of individual Italian stations, as communica
 
 ## Saved stations
 
-1. To build the user's list, search near home and work, show the stations, and save the ones the user picks with `save_fuel_station`, passing the coordinates from the search and `near` with the place label.
-2. `list_saved_fuel_stations` gives current prices at those stations, cheapest first; `near` filters by place.
-3. Remove stations with `forget_fuel_station` only when the user asks.
+The stations near the user's places are saved in `fuel-stations.yaml` in Alfred's data directory, each with its distance from "home" and/or "work" (places from the profile); the user's regular station has `usual: true`. Prices are never stored: they are read live.
+
+1. To build or refresh the list for a place, call `collect_fuel_stations` with `near` ("home", "work"; 5 km by default). It keeps the usual station even when it falls outside the radius.
+2. For "prezzi dei miei distributori" or "quanto costa al mio distributore", call `list_saved_fuel_stations`: `order="distance"` (closest first, the default) or `order="price"` (cheapest first); `near` filters by place; `limit` keeps it short.
+3. Always compare with the usual station: say how much cheaper the best alternative is per litre and per full tank, and whether the detour is worth it.
+4. Mark or change the usual station with `save_fuel_station` (`usual=true`; this unmarks the previous one); remove stations with `forget_fuel_station` only when the user asks.
 
 ## Limits
 

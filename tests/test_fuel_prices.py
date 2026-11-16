@@ -8,7 +8,8 @@ from unittest.mock import Mock
 import pytest
 import requests
 
-from alfred import fuel_prices
+from alfred import fuel_prices, paths
+from alfred import profile as profile_store
 
 NOW = datetime(2026, 11, 16, 9, 0, tzinfo=UTC)
 
@@ -128,32 +129,81 @@ def test_service_errors_become_fuel_errors() -> None:
         fuel_prices.find_stations(41.76, 12.24, session=session)
 
 
-def test_saved_stations_round_trip(tmp_path: Path) -> None:
-    path = tmp_path / "fuel-stations.yaml"
-    session = Mock()
-    session.get.side_effect = lambda url, **_: _response(
-        _detail(int(url.rsplit("/", 1)[1]), 1.9 + int(url.rsplit("/", 1)[1]) / 100)
+@pytest.fixture
+def profile_with_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setenv(paths.DATA_DIR_ENV, str(tmp_path))
+    path = tmp_path / "profile.yaml"
+    monkeypatch.setenv(profile_store.PROFILE_FILE_ENV, str(path))
+    profile_store.save_profile(
+        profile_store.save_place(profile_store.Profile(), "home", "Via Roma 1", latitude=41.76, longitude=12.24)
     )
+    return path
 
-    fuel_prices.save_station(5, latitude=41.7, longitude=12.3, near="home", path=path, session=session)
-    fuel_prices.save_station(2, near="work", path=path, session=session)
-    fuel_prices.save_station(5, note="sul tragitto", path=path, session=session)
 
-    saved = fuel_prices.load_saved_stations(path)
-    assert [(s["id"], s["near"], s["note"], s["latitude"]) for s in saved] == [
-        (2, "work", "", None),
-        (5, "home", "sul tragitto", 41.7),
+def _detail_for(url: str, **_: Any) -> Mock:
+    station_id = int(url.rsplit("/", 1)[1])
+    return _response(_detail(station_id, 1.9 + station_id / 1000))
+
+
+def test_collect_stations_saves_them_in_the_profile_closest_first(profile_with_home: Path) -> None:
+    session = Mock()
+    session.post.return_value = _response(
+        {"results": [_zone_station(1, 1.95, "4.6"), _zone_station(2, 1.93, "0.4"), _zone_station(3, 1.94, "1.4")]}
+    )
+    session.get.side_effect = _detail_for
+
+    collected = fuel_prices.collect_stations("home", now=NOW, session=session)
+
+    assert [(s["id"], s["distances"]) for s in collected] == [
+        (2, {"home": 0.4}),
+        (3, {"home": 1.4}),
+        (1, {"home": 4.6}),
     ]
-    assert oct(path.stat().st_mode & 0o777) == "0o600"
+    saved = fuel_prices.load_stations()
+    assert [s.id for s in saved] == [2, 3, 1]
+    assert fuel_prices.stations_file() == profile_with_home.parent / "fuel-stations.yaml"
+    assert oct(fuel_prices.stations_file().stat().st_mode & 0o777) == "0o600"
+    assert saved[0].address == "Via Roma 2"
+    assert saved[0].source == "mimit"
 
-    prices = fuel_prices.saved_station_prices(now=NOW, path=path, session=session)
-    assert [s["id"] for s in prices] == [2, 5]
-    assert [s["id"] for s in fuel_prices.saved_station_prices(near="HOME", now=NOW, path=path, session=session)] == [5]
 
-    fuel_prices.forget_station(2, path=path)
-    assert [s["id"] for s in fuel_prices.load_saved_stations(path)] == [5]
-    with pytest.raises(KeyError):
-        fuel_prices.forget_station(2, path=path)
+def test_collect_again_keeps_the_usual_station_and_drops_the_rest(profile_with_home: Path) -> None:
+    session = Mock()
+    session.get.side_effect = _detail_for
+    session.post.return_value = _response({"results": [_zone_station(1, 1.95, "4.6"), _zone_station(2, 1.93, "0.4")]})
+    fuel_prices.collect_stations("home", now=NOW, session=session)
+    fuel_prices.save_station(1, usual=True, note="abituale", session=session)
+
+    fuel_prices._cache.clear()
+    session.post.return_value = _response({"results": [_zone_station(3, 1.94, "1.4")]})
+    fuel_prices.collect_stations("home", now=NOW, session=session)
+
+    stations = fuel_prices.load_stations()
+    assert [(s.id, s.distances, s.usual) for s in stations] == [(3, {"home": 1.4}, False), (1, {}, True)]
+
+
+def test_collect_requires_place_coordinates(profile_with_home: Path) -> None:
+    with pytest.raises(ValueError, match="no coordinates"):
+        fuel_prices.collect_stations("work", session=Mock())
+
+
+def test_saved_station_prices_by_distance_or_price(profile_with_home: Path) -> None:
+    session = Mock()
+    session.get.side_effect = _detail_for
+    session.post.return_value = _response(
+        {"results": [_zone_station(9, 1.95, "0.4"), _zone_station(2, 1.93, "3.0"), _zone_station(5, 1.94, "1.4")]}
+    )
+    fuel_prices.collect_stations("home", now=NOW, session=session)
+
+    by_distance = fuel_prices.saved_station_prices(near="home", now=NOW, session=session)
+    by_price = fuel_prices.saved_station_prices(near="home", order="price", now=NOW, session=session)
+
+    assert [s["id"] for s in by_distance] == [9, 5, 2]
+    assert [s["id"] for s in by_price] == [2, 5, 9]
+    assert by_distance[0]["prices"][0]["price"] == pytest.approx(1.909)
+    assert by_distance[0]["map"].startswith("https://www.google.com/maps?q=")
+    fuel_prices.forget_station(9)
+    assert [s.id for s in fuel_prices.load_stations()] == [5, 2]
 
 
 def test_rate_limit_is_retried(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -175,3 +225,49 @@ def test_find_stations_falls_back_to_zone_data_when_a_detail_fails(monkeypatch: 
     stations = fuel_prices.find_stations(41.76, 12.24, now=NOW, session=session)
 
     assert [(s["id"], s["name"], s["price"], s["hours_since_update"]) for s in stations] == [(1, "Q8 Uno", 1.95, 1.0)]
+
+
+def test_station_without_fuels_is_handled() -> None:
+    session = Mock()
+    session.get.return_value = _response({"id": 4, "name": "Chiuso", "brand": "X", "address": "", "fuels": None})
+
+    assert fuel_prices.station_prices(4, now=NOW, session=session)["prices"] == []
+
+
+def test_station_with_incomplete_registry_data_is_handled() -> None:
+    session = Mock()
+    session.get.return_value = _response({"id": None, "name": None, "brand": None, "address": None, "fuels": None})
+
+    station = fuel_prices.station_prices(4, now=NOW, session=session)
+
+    assert (station["id"], station["name"], station["brand"], station["address"]) == (4, "", "", "")
+
+
+def test_upsert_records_distances_per_place_and_keeps_order() -> None:
+    stations = fuel_prices.upsert_station([], 7, name="A", near="home", distance_km=3.14)
+    stations = fuel_prices.upsert_station(stations, 8, name="B", near="work", distance_km=0.9)
+    stations = fuel_prices.upsert_station(stations, 7, near="Work", distance_km=4.0, usual=True)
+
+    assert [(s.id, s.distances, s.usual) for s in stations] == [
+        (8, {"work": 0.9}, False),
+        (7, {"home": 3.1, "work": 4.0}, True),
+    ]
+    assert [s.id for s in fuel_prices.stations_near(stations, "work")] == [8, 7]
+    assert [s.id for s in fuel_prices.stations_near(stations, "home")] == [7]
+
+
+def test_distance_needs_a_place() -> None:
+    with pytest.raises(ValueError, match="together"):
+        fuel_prices.upsert_station([], 7, distance_km=1.0)
+
+
+def test_marking_a_new_usual_station_unmarks_the_old_one(profile_with_home: Path) -> None:
+    session = Mock()
+    session.get.side_effect = _detail_for
+
+    fuel_prices.save_station(1, usual=True, session=session)
+    fuel_prices.save_station(2, usual=True, session=session)
+
+    assert [(s.id, s.usual) for s in fuel_prices.load_stations()] == [(1, False), (2, True)]
+    with pytest.raises(KeyError):
+        fuel_prices.forget_station(99)

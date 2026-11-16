@@ -50,16 +50,42 @@ def get_fuel_station_prices(station_id: int, fuel: str | None = None) -> dict[st
 
 
 @mcp.tool
+def collect_fuel_stations(near: str = "home", radius_km: float = 5, fuel: str | None = None) -> list[dict[str, Any]]:
+    """Save every station selling the fuel within radius_km of a profile place ("home",
+    "work"), with distance, closest first. Running it again refreshes the list and keeps the usual station."""
+    return fuel_prices.collect_stations(near, radius_km=radius_km, fuel=_fuel(fuel))
+
+
+@mcp.tool
+def list_saved_fuel_stations(
+    fuel: str | None = None, near: str | None = None, order: str = "distance", limit: int | None = None
+) -> list[dict[str, Any]]:
+    """Live prices at the saved stations; near filters by place ("home", "work");
+    order is "distance" (closest first) or "price" (cheapest first); usual=true marks the user's station."""
+    return fuel_prices.saved_station_prices(fuel=_fuel(fuel), near=near, order=order, limit=limit)
+
+
+@mcp.tool
 def save_fuel_station(
     station_id: int,
+    near: str | None = None,
+    distance_km: float | None = None,
     latitude: float | None = None,
     longitude: float | None = None,
-    near: str = "",
-    note: str = "",
+    usual: bool | None = None,
+    note: str | None = None,
 ) -> dict[str, Any]:
-    """Save a station the user cares about; near is a profile place label such as "home" or "work".
-    Pass the coordinates from find_fuel_stations: the registry has no coordinates."""
-    return fuel_prices.save_station(station_id, latitude=latitude, longitude=longitude, near=near, note=note)
+    """Add or update one saved station, e.g. usual=true for the user's regular station (unmarks the old one).
+    near and distance_km go together; omitted fields are kept."""
+    return fuel_prices.save_station(
+        station_id,
+        near=near,
+        distance_km=distance_km,
+        latitude=latitude,
+        longitude=longitude,
+        usual=usual,
+        note=note,
+    )
 
 
 @mcp.tool
@@ -67,12 +93,6 @@ def forget_fuel_station(station_id: int) -> dict[str, int]:
     """Remove a saved station."""
     fuel_prices.forget_station(station_id)
     return {"removed": station_id}
-
-
-@mcp.tool
-def list_saved_fuel_stations(fuel: str | None = None, near: str | None = None) -> list[dict[str, Any]]:
-    """Current prices at the saved stations, cheapest first; near filters by place label."""
-    return fuel_prices.saved_station_prices(fuel=_fuel(fuel), near=near)
 
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ Alfred is a personal-assistant plugin for [Claude Code](https://code.claude.com)
 | `gmail` | "What unread email do I have today?", "Find the invoice from Enel", "Label the OVH emails OVHCloud", "Trash the promotions older than 3 months" |
 | `weather` | "What's the weather tomorrow?", "How should I dress for Sunday's run?", "Do I need an umbrella for the office?" |
 | `traffic` | "How is the traffic to the office?", "When should I leave to be at the dentist at 10?" |
-| `fuel` | "Where is petrol cheapest near home?", "Prices at my saved stations" |
+| `fuel` | "Where is petrol cheapest near home?", "How much do I save compared to my usual station?" |
 | `user-profile` | "Remember my wife's birthday is July 4", "What do you know about me?", "Forget my old car" |
 | `morning-report` | Being rewritten: not working in this version |
 
@@ -41,7 +41,7 @@ Behind the skills, the plugin starts three MCP servers:
 - **google-workspace**: Google Calendar (events, recurring series, reminders, availability, calendars), Google Tasks (lists, tasks, subtasks, due dates) and Gmail (search, read, create and apply labels, archive, mark read or unread, trash and restore).
 - **user-profile**: your local profile, with people identified by name, surname and birth date.
 - **weather**: forecasts and place search from [Open-Meteo](https://open-meteo.com) (free, no API key).
-- **fuel**: prices of individual Italian fuel stations from the Ministry's price observatory (MIMIT), free, no API key.
+- **fuel**: prices of individual Italian fuel stations from the Ministry's price observatory (MIMIT), free, no API key. The stations near home and work are kept in `fuel-stations.yaml`, closest first.
 - **traffic**: car routes with live and predicted traffic, and address search, from [TomTom](https://developer.tomtom.com) (free key required).
 
 ## Requirements
@@ -90,6 +90,7 @@ Alfred stores everything in the plugin data directory, `~/.claude/plugins/data/a
 | File | Contents |
 |---|---|
 | `profile.yaml` | Your profile: family, places, vehicles, preferences |
+| `fuel-stations.yaml` | Fuel stations near your places, with distances and your usual one |
 | `google-oauth-client.json`, `google-token.json` | Google credentials |
 | `venv/` | The Python environment |
 

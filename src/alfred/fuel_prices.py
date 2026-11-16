@@ -4,7 +4,8 @@ Prices are those each station communicated to the Osservatorio prezzi carburanti
 of the last communication for every fuel. The service is free and needs no key, but it is not
 documented officially: requests are kept few and short-lived results are cached in memory.
 
-Stations the user cares about are saved in ``fuel-stations.yaml`` in the data directory.
+Stations near the user's places are kept in ``fuel-stations.yaml`` in the data directory,
+closest first; prices are always read live.
 """
 
 import os
@@ -16,7 +17,9 @@ from typing import Any
 
 import requests
 import yaml
+from pydantic import BaseModel, ConfigDict, Field
 
+from alfred import profile as profile_store
 from alfred.paths import data_dir
 
 ZONE_URL = "https://carburanti.mise.gov.it/ospzApi/search/zone"
@@ -24,8 +27,8 @@ DETAIL_URL = "https://carburanti.mise.gov.it/ospzApi/registry/servicearea"
 REQUEST_TIMEOUT_SECONDS = 20
 RATE_LIMIT_RETRIES = 3
 CACHE_SECONDS = 15 * 60
-STALE_AFTER_HOURS = 72
 STATIONS_FILENAME = "fuel-stations.yaml"
+STALE_AFTER_HOURS = 72
 
 # Profile fuel types -> fuel names used by the observatory. Hybrids run on petrol.
 FUEL_NAMES: dict[str, tuple[str, ...]] = {
@@ -111,7 +114,7 @@ def station_prices(
         lambda: _request("get", f"{DETAIL_URL}/{int(station_id)}", "read the station", session),
     )
     prices = []
-    for item in detail.get("fuels", []):
+    for item in detail.get("fuels") or []:
         if item.get("name") not in names:
             continue
         updated = str(item.get("insertDate", ""))
@@ -128,10 +131,10 @@ def station_prices(
         )
     prices.sort(key=lambda price: (not price["self_service"], price["price"]))
     return {
-        "id": int(detail.get("id", station_id)),
-        "brand": str(detail.get("brand", "")),
-        "name": str(detail.get("name", "")).strip(),
-        "address": str(detail.get("address", "") or ""),
+        "id": int(detail.get("id") or station_id),
+        "brand": str(detail.get("brand") or ""),
+        "name": str(detail.get("name") or "").strip(),
+        "address": str(detail.get("address") or ""),
         "prices": prices,
     }
 
@@ -149,7 +152,7 @@ def _detail_from_zone(station: dict[str, Any], names: tuple[str, ...], now: date
             "hours_since_update": age,
             "stale": age is not None and age > STALE_AFTER_HOURS,
         }
-        for item in station.get("fuels", [])
+        for item in station.get("fuels") or []
         if item.get("name") in names
     ]
     prices.sort(key=lambda price: (not price["self_service"], price["price"]))
@@ -195,7 +198,7 @@ def find_stations(
     for station in found.get("results", []):
         offered = [
             float(item["price"])
-            for item in station.get("fuels", [])
+            for item in station.get("fuels") or []
             if item.get("name") in names and bool(item.get("isSelf")) == self_service
         ]
         if offered:
@@ -233,26 +236,60 @@ def find_stations(
 
 
 # ---------------------------------------------------------------------------------------------
-# Saved stations
+# Stations saved in fuel-stations.yaml
+
+
+class FuelStation(BaseModel):
+    """A fuel station near the user's places, identified by its MIMIT registry id.
+
+    ``distances`` maps profile place labels ("home", "work") to the distance in km. Prices are not
+    stored because they change: they are read live from the observatory.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    brand: str = ""
+    name: str = ""
+    address: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
+    distances: dict[str, float] = Field(default_factory=dict)
+    usual: bool = False
+    note: str = ""
+    source: str = "user"
+
+    def closest(self) -> float:
+        return min(self.distances.values(), default=float("inf"))
 
 
 def stations_file() -> Path:
     return data_dir() / STATIONS_FILENAME
 
 
-def load_saved_stations(path: Path | None = None) -> list[dict[str, Any]]:
-    """Return the stations the user saved."""
+def _label(near: str) -> str:
+    return "_".join(near.casefold().split())
+
+
+def _sorted(stations: list[FuelStation]) -> list[FuelStation]:
+    return sorted(stations, key=lambda station: (station.closest(), station.id))
+
+
+def load_stations(path: Path | None = None) -> list[FuelStation]:
+    """Return the saved stations, closest first."""
     path = path or stations_file()
     if not path.is_file():
         return []
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    stations: list[dict[str, Any]] = list(data.get("stations", []))
-    return stations
+    return _sorted([FuelStation.model_validate(item) for item in data.get("stations") or []])
 
 
-def _write_saved_stations(stations: list[dict[str, Any]], path: Path) -> None:
+def write_stations(stations: list[FuelStation], path: Path | None = None) -> Path:
+    """Write the stations atomically with owner-only permissions, closest first."""
+    path = path or stations_file()
     path.parent.mkdir(parents=True, exist_ok=True)
-    content = yaml.safe_dump({"stations": stations}, allow_unicode=True, sort_keys=False)
+    items = [station.model_dump(exclude_defaults=True) | {"id": station.id} for station in _sorted(stations)]
+    content = yaml.safe_dump({"stations": items}, allow_unicode=True, sort_keys=False)
     file_descriptor, temporary_name = tempfile.mkstemp(dir=path.parent, prefix=".fuel-", suffix=".yaml")
     try:
         with os.fdopen(file_descriptor, "w", encoding="utf-8") as temporary_file:
@@ -262,81 +299,202 @@ def _write_saved_stations(stations: list[dict[str, Any]], path: Path) -> None:
     except BaseException:
         Path(temporary_name).unlink(missing_ok=True)
         raise
+    return path
+
+
+def upsert_station(
+    stations: list[FuelStation],
+    station_id: int,
+    *,
+    near: str | None = None,
+    distance_km: float | None = None,
+    **fields: Any,
+) -> list[FuelStation]:
+    """Add or update a station; ``None`` fields keep current values; ``near`` with ``distance_km``
+    records the distance from a place."""
+    if (near is None) != (distance_km is None):
+        raise ValueError("near and distance_km must be given together")
+    index = next((i for i, station in enumerate(stations) if station.id == int(station_id)), None)
+    current: dict[str, Any] = stations[index].model_dump() if index is not None else {"id": int(station_id)}
+    distances = dict(current.get("distances", {}))
+    if near is not None and distance_km is not None:
+        distances[_label(near)] = round(float(distance_km), 1)
+    changes = {key: value for key, value in fields.items() if value is not None}
+    station = FuelStation.model_validate({**current, **changes, "distances": distances})
+    updated = list(stations)
+    if index is None:
+        updated.append(station)
+    else:
+        updated[index] = station
+    return _sorted(updated)
+
+
+def replace_near(stations: list[FuelStation], near: str, found: list[dict[str, Any]]) -> list[FuelStation]:
+    """Make ``found`` the stations near a place: refresh them, drop that place from stations no
+    longer found, and remove stations left with no place unless they are the usual one."""
+    label = _label(near)
+    found_ids = {int(item["id"]) for item in found}
+    kept = []
+    for station in stations:
+        if station.id not in found_ids and label in station.distances:
+            station = station.model_copy(
+                update={"distances": {key: value for key, value in station.distances.items() if key != label}}
+            )
+        if station.distances or station.usual:
+            kept.append(station)
+    for item in found:
+        kept = upsert_station(
+            kept,
+            int(item["id"]),
+            near=label,
+            distance_km=float(item["distance_km"]),
+            brand=item.get("brand"),
+            name=item.get("name"),
+            address=item.get("address"),
+            latitude=item.get("latitude"),
+            longitude=item.get("longitude"),
+            source="mimit",
+        )
+    return kept
+
+
+def stations_near(stations: list[FuelStation], near: str | None = None) -> list[FuelStation]:
+    """Stations near a place (all when ``near`` is None), closest first."""
+    if near is None:
+        return _sorted(stations)
+    label = _label(near)
+    return sorted((s for s in stations if label in s.distances), key=lambda station: station.distances[label])
+
+
+def _station_dict(station: FuelStation) -> dict[str, Any]:
+    data = station.model_dump(exclude={"source"})
+    data["map"] = _map_link(station.latitude, station.longitude)
+    return data
+
+
+def collect_stations(
+    near: str,
+    *,
+    radius_km: float = 5,
+    fuel: str = "benzina",
+    now: datetime | None = None,
+    path: Path | None = None,
+    session: Any | None = None,
+) -> list[dict[str, Any]]:
+    """Save every station selling ``fuel`` within ``radius_km`` of a profile place (e.g. "home"),
+    with its distance; stations no longer found there are dropped, except the usual one.
+    Returns the stations near that place, closest first."""
+    names = _fuel_names(fuel)
+    place = profile_store.load_profile().places.get(near)
+    if place is None or place.latitude is None or place.longitude is None:
+        raise ValueError(f"the profile place {near!r} has no coordinates; save them first")
+    if not 0.5 <= radius_km <= 10:
+        raise ValueError("radius_km must be between 0.5 and 10")
+    body = {"points": [{"lat": place.latitude, "lng": place.longitude}], "radius": radius_km}
+    zone = _cached(
+        f"zone:{place.latitude:.4f},{place.longitude:.4f},{radius_km}",
+        lambda: _request("post", ZONE_URL, "search fuel stations", session, json=body),
+    )
+    found = []
+    for station in zone.get("results") or []:
+        if not any(item.get("name") in names for item in station.get("fuels") or []):
+            continue
+        try:
+            detail = station_prices(int(station["id"]), fuel=fuel, now=now, session=session)
+        except FuelError:
+            detail = _detail_from_zone(station, names, now or datetime.now(UTC))
+        location = station.get("location") or {}
+        found.append(
+            {
+                "id": int(station["id"]),
+                "brand": detail["brand"] or str(station.get("brand") or ""),
+                "name": detail["name"],
+                "address": detail["address"],
+                "latitude": location.get("lat"),
+                "longitude": location.get("lng"),
+                "distance_km": float(station.get("distance") or 0),
+            }
+        )
+    stations = replace_near(load_stations(path), near, found)
+    write_stations(stations, path)
+    return [_station_dict(station) for station in stations_near(stations, near)]
 
 
 def save_station(
     station_id: int,
     *,
+    near: str | None = None,
+    distance_km: float | None = None,
     latitude: float | None = None,
     longitude: float | None = None,
-    near: str = "",
-    note: str = "",
+    usual: bool | None = None,
+    note: str | None = None,
     path: Path | None = None,
     session: Any | None = None,
 ) -> dict[str, Any]:
-    """Save (or update) a station; brand, name and address come from the registry."""
-    path = path or stations_file()
-    detail = station_prices(station_id, session=session, fuel="benzina")
-    entry = {
-        "id": detail["id"],
-        "brand": detail["brand"],
-        "name": detail["name"],
-        "address": detail["address"],
-        "latitude": latitude,
-        "longitude": longitude,
-        "near": near.strip(),
-        "note": note.strip(),
-    }
-    saved = load_saved_stations(path)
-    previous = next((station for station in saved if int(station["id"]) == entry["id"]), {})
-    stations = [station for station in saved if int(station["id"]) != entry["id"]]
-    for key in ("latitude", "longitude", "near", "note"):
-        if entry[key] in (None, "") and previous.get(key) not in (None, ""):
-            entry[key] = previous[key]
-    stations.append(entry)
-    _write_saved_stations(stations, path)
-    return entry
+    """Add or update one station; brand, name and address come from the registry. Marking a station
+    as usual unmarks the previous usual one."""
+    detail = station_prices(station_id, fuel="benzina", session=session)
+    stations = load_stations(path)
+    if usual:
+        stations = [s.model_copy(update={"usual": False}) if s.id != int(station_id) else s for s in stations]
+    stations = upsert_station(
+        stations,
+        station_id,
+        near=near,
+        distance_km=distance_km,
+        brand=detail["brand"],
+        name=detail["name"],
+        address=detail["address"],
+        latitude=latitude,
+        longitude=longitude,
+        usual=usual,
+        note=note,
+    )
+    write_stations(stations, path)
+    return _station_dict(next(s for s in stations if s.id == int(station_id)))
 
 
 def forget_station(station_id: int, *, path: Path | None = None) -> None:
     """Remove a saved station."""
-    path = path or stations_file()
-    stations = load_saved_stations(path)
-    remaining = [station for station in stations if int(station["id"]) != int(station_id)]
+    stations = load_stations(path)
+    remaining = [station for station in stations if station.id != int(station_id)]
     if len(remaining) == len(stations):
         raise KeyError(f"no saved station with id {station_id}")
-    _write_saved_stations(remaining, path)
+    write_stations(remaining, path)
 
 
 def saved_station_prices(
     *,
     fuel: str = "benzina",
     near: str | None = None,
+    order: str = "distance",
+    limit: int | None = None,
     now: datetime | None = None,
     path: Path | None = None,
     session: Any | None = None,
 ) -> list[dict[str, Any]]:
-    """Current prices at the saved stations (optionally only those near "home", "work", ...),
-    cheapest self-service first."""
+    """Live prices at the saved stations, near a place or all, ordered by ``distance`` (closest
+    first) or ``price`` (cheapest self-service first)."""
+    if order not in ("distance", "price"):
+        raise ValueError("order must be 'distance' or 'price'")
+    stations = stations_near(load_stations(path), near)
+    if limit is not None:
+        stations = stations[:limit]
     results = []
-    for station in load_saved_stations(path):
-        if near and station.get("near", "").casefold() != near.casefold():
-            continue
+    for station in stations:
+        entry = _station_dict(station)
         try:
-            detail = station_prices(int(station["id"]), fuel=fuel, now=now, session=session)
+            entry["prices"] = station_prices(station.id, fuel=fuel, now=now, session=session)["prices"]
         except FuelError as error:
-            results.append({**station, "error": str(error), "prices": []})
-            continue
-        results.append(
-            {
-                **station,
-                "map": _map_link(station.get("latitude"), station.get("longitude")),
-                "prices": detail["prices"],
-            }
-        )
+            entry["prices"], entry["error"] = [], str(error)
+        results.append(entry)
 
-    def best(station: dict[str, Any]) -> float:
-        own = [p["price"] for p in station["prices"] if p["self_service"]] or [p["price"] for p in station["prices"]]
-        return min(own) if own else float("inf")
+    if order == "price":
 
-    return sorted(results, key=best)
+        def best(entry: dict[str, Any]) -> float:
+            own = [p["price"] for p in entry["prices"] if p["self_service"]] or [p["price"] for p in entry["prices"]]
+            return min(own) if own else float("inf")
+
+        results.sort(key=best)
+    return results
