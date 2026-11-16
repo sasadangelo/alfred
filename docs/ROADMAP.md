@@ -22,10 +22,11 @@ Ordered by usefulness against effort.
 
 1. **Places nearby.** Supermarkets, fuel stations and other services around home or work.
 2. **News.** A news service on its own, from RSS feeds the user chooses (general, sports, technology, science): latest headlines by source or topic, short summaries in Italian, similar stories from different sources grouped together, and a "read later" list. Free and keyless; the feeds are configured by the user.
-3. **Morning routine.** A daily briefing built from the existing skills (weather, appointments, tasks, birthdays, deadlines, commute) and the news service. To decide: how it is delivered (chat, a Telegram bot, or an email to oneself) and when it runs.
-4. **Projects.** A project is a container with its own goal and rules, a task list, recurring calendar reminders, a document folder, a mail label and a log of decisions. Alfred loads a project's rules when the user talks about it. First candidate: a recurring household administration task with fixed rules and a two-month cycle.
-5. **Shopping module.** See [Shopping](#shopping) below.
-6. **Document archive.** See [Documents](#documents) below.
+3. **Daily almanac.** See [Almanac](#almanac) below.
+4. **Morning routine.** A daily briefing built from the existing skills (weather, appointments, tasks, birthdays, deadlines, commute), the news service and the almanac. To decide: how it is delivered (chat, a Telegram bot, or an email to oneself) and when it runs.
+5. **Projects.** A project is a container with its own goal and rules, a task list, recurring calendar reminders, a document folder, a mail label and a log of decisions. Alfred loads a project's rules when the user talks about it. First candidate: a recurring household administration task with fixed rules and a two-month cycle.
+6. **Shopping module.** See [Shopping](#shopping) below.
+7. **Document archive.** See [Documents](#documents) below.
 
 ## Ideas
 
@@ -50,6 +51,21 @@ Ordered by usefulness against effort.
 - **Chess:** daily puzzle and game review from lichess.
 - **Stargazing:** whether tonight's sky is worth it, from cloud cover and astronomical data.
 - **Genealogy:** family tree research.
+
+### Almanac
+
+A daily dose of curiosity, each item with a link to go deeper; on request Alfred reads the linked page and tells more.
+
+| Section | Content | Source |
+|---|---|---|
+| On this day | 3 items (events, births or deaths) from different eras, preferring the interests in the user's profile | The Italian Wikipedia page of the day (sections Eventi, Nati, Morti), free and keyless; Wikimedia's "On this day" feed if it covers Italian |
+| Saint of the day | The saint or saints celebrated, with a line on who they were | The *Feste e ricorrenze* section of the same page |
+| Word of the day | An uncommon but real Italian word, its meaning, its origin and a curious example sentence | Candidates and meanings from Wikizionario (open license); Claude writes the example sentence |
+| Horoscope | The day's horoscope for the user's sign, and on request for family members, from birth dates in the profile; quoted from the source with its link, never written by Claude | TPI's horoscope RSS feed (tpi.it/oroscopo/feed), updated daily with Paolo Fox and Branko; the user picks the astrologer |
+
+**Memory.** A local file in the data directory records what was shown and when, so an item is not shown again the following year, and a word is never repeated. The user can mark an item as interesting, to find it again later.
+
+**Delivery.** On request ("cosa è successo oggi?", "parola del giorno", "oroscopo") and as a section of the morning routine.
 
 ### Shopping
 
